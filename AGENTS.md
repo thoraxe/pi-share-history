@@ -10,6 +10,13 @@ Write and review spec text in ASD-STE100 style. See the "Spec Language" section 
 
 Spec changes follow the Spec Workflow in `.ai/spec/README.md`.
 
+## Review and merge
+
+- A pull request is ready when a code review reports no P0 and no P1 findings.
+- Add the `ready-to-merge` label to a ready pull request.
+- Enable auto-merge (squash) on the same pull request. Do not merge a pull request that lacks the label.
+- Merge the spec pull request first. Rebase the implementation branch onto `main` after the spec lands, because the branch no longer needs the spec change.
+
 ## Development
 
 - Node 22.18+ (`node:sqlite`, TypeScript type stripping). The service needs no dependencies.

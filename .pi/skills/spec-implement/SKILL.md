@@ -65,7 +65,7 @@ Run the full suite. Report the count of pass and fail.
 6. Put these sections in the body: Summary, Spec PR, Rules implemented, Tests, Manual checks.
 7. List each rule number next to its code change and its test.
 8. Report the manual checks that need a browser. Unit tests cover rendering logic only.
-9. Do not merge without review.
+9. Add the `ready-to-merge` label and enable auto-merge (squash) when review reports no P0 and no P1 findings. Auto-merge merges the pull request. Do not add the label without that review.
 
 ## Guardrails
 

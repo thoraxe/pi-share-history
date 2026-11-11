@@ -34,7 +34,7 @@ flowchart LR
 
 **Service.** A single `http.createServer` handler with hand-written routing. It validates configuration, serves the viewer from memory, owns the SQLite schema, enforces quotas and per-share key auth, and keeps SSE clients per share. Drafts and viewer connections are memory-only.
 
-**Viewer.** Plain scripts served from the service origin. It fetches the whole transcript on every SSE invalidation and reuses DOM nodes by record id. Expansion state and scroll position therefore survive updates. Markdown is rendered in the browser with vendored Marked/DOMPurify. The stored text never changes.
+**Viewer.** Plain scripts served from the service origin. It has two modes: Read mode is the default and shows prompts, replies, errors, and notices. Advanced mode adds tool activity, summaries, and metadata. The viewer fetches the whole transcript on every SSE invalidation and reuses DOM nodes by unit key: one node per message and one per tool group. It inserts a node only when it is new or out of order, so expansion state, focus, selection, and scroll position survive updates. Markdown is rendered in the browser with vendored Marked/DOMPurify. The stored text never changes.
 
 ```mermaid
 sequenceDiagram

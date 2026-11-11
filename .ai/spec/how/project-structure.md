@@ -9,14 +9,14 @@ The repository is one npm package (`type: module`) that ships a Pi extension, a 
 | `extension/index.ts` | default extension factory, `piHasBuiltInShare`, `detectPiHasBuiltInShare` | Registers share commands, captures session events, queues and flushes records, polls editor drafts, and persists owner state. |
 | `extension/records.mjs` | `content`, `messageRecord`, `toolRecord` | Allowlist mapping from Pi messages/tool events to publishable records, plus truncation. |
 | `server/index.mjs` | `createService`, `body`, `notify`, `publicDraft` | HTTP routing, auth, SQLite schema and queries, SSE fan-out, draft TTL, quota enforcement, static asset serving. |
-| `web/app.js` | `refresh`, `renderBody`, `renderDraft`, `applySearch` | Directory and transcript rendering, SSE-driven refresh, follow-live, search, Markdown toggle wiring. |
+| `web/app.js` | `refresh`, `renderTranscript`, `buildUnits`, `applyView`, `renderBody`, `renderDraft` | Directory and transcript rendering, Read/Advanced modes, tool groups, SSE-driven refresh, follow-live, search, Markdown toggle wiring. |
 | `web/markdown.js` | `window.PiMarkdown.render` | Marked + DOMPurify setup with escaped HTML, image placeholders, fixed tag/attribute allowlist. |
 | `web/theme.js` | theme IIFE, `nextPreference` | Applies stored/system theme before paint, cycles themes, syncs tabs. |
 | `web/index.html` | `data-base-path`, `__BASE_PATH__` placeholders | Single HTML shell for both directory and transcript routes. |
 | `web/style.css` | theme tokens, layout classes | Light/dark token sets keyed on `data-theme`, transcript layout, draft panel. |
 | `web/vendor/` | `marked.umd.js`, `purify.min.js`, licenses | Pinned third-party browser libraries committed for offline serving. |
 | `scripts/vendor-web.mjs` | copy loops | Reproduces `web/vendor/` from pinned devDependencies. |
-| `test/*.test.mjs` | `node:test` cases | Service API, subpath routing, extension lifecycle, records, drafts, theme, Markdown. |
+| `test/*.test.mjs` | `node:test` cases | Service API, subpath routing, extension lifecycle, records, drafts, theme, Markdown, viewer modes. |
 | `compose.yaml`, `Dockerfile` | `history` service, volume `history-data` | Container build and localhost-bound deployment. |
 | `deploy/Caddyfile` | site block, legacy redirect | TLS termination and prefix-preserving reverse proxy template. |
 

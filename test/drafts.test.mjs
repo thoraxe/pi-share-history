@@ -126,8 +126,8 @@ test('extension draft sharing is opt-in, supports edits/deletions, and submits o
 
 test('viewer keeps draft outside history and removes it on submission, expiry, or disconnect', async () => {
   const id = 'a'.repeat(32), listeners = {};
-  const makeNode = () => ({ textContent: '', children: [], hidden: false, classList: { toggle() {} }, parts: {}, setAttribute() {}, addEventListener() {}, append(...nodes) { this.children.push(...nodes); }, replaceChildren(...nodes) { this.children = nodes; }, querySelector(name) { return this.parts[name] ??= makeNode(); } });
-  const elements = Object.fromEntries(['search', 'follow', 'records', 'status', 'title', 'draft', 'draft-text', 'markdown-toggle'].map(name => [name, makeNode()]));
+  const makeNode = () => ({ textContent: '', childNodes: [], children: [], hidden: false, dataset: {}, classList: { toggle() {} }, parts: {}, setAttribute() {}, addEventListener() {}, remove() { this.removed = true; }, append(...nodes) { this.children.push(...nodes); }, get firstElementChild() { return this.children[0] ?? null; }, insertBefore(node, reference) { this.children.splice(reference ? this.children.indexOf(reference) : this.children.length, 0, node); return node; }, replaceChildren(...nodes) { this.children = nodes; }, querySelector(name) { return this.parts[name] ??= makeNode(); } });
+  const elements = Object.fromEntries(['search', 'follow', 'records', 'status', 'title', 'draft', 'draft-text', 'markdown-toggle', 'advanced-toggle'].map(name => [name, makeNode()]));
   elements.search.value = '';
   let payload = { title: 'Draft test', updated: Date.now(), records: [], draft: { text: '<script>unsent</script>', expiresIn: 8000 } }, expiry, source;
   vm.runInNewContext(readFileSync(new URL('../web/app.js', import.meta.url), 'utf8'), {

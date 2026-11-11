@@ -12,6 +12,8 @@
   --control: #edf2f8;
   --control-border: #8094ad;
   --error: #b42335;
+  --error-surface: #fff1f2;
+  --prompt: #edf3ff;
   --focus: #0869bd;
   background: var(--background);
   color: var(--foreground);
@@ -32,6 +34,8 @@
     --control: #23344a;
     --control-border: #516b8e;
     --error: #e88989;
+    --error-surface: #2a1720;
+    --prompt: #24344f;
     --focus: #82c9ff;
   }
 }
@@ -49,6 +53,8 @@
   --control: #23344a;
   --control-border: #516b8e;
   --error: #e88989;
+  --error-surface: #2a1720;
+  --prompt: #24344f;
   --focus: #82c9ff;
 }
 
@@ -69,6 +75,7 @@ main { max-width: 1050px; margin: auto; padding: 1rem; }
 h1 { font-size: 1.5rem; }
 h2 { font-size: 1rem; margin: 0; }
 article {
+  position: relative;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -76,8 +83,71 @@ article {
   margin: 1rem 0;
   overflow-wrap: anywhere;
 }
+/* A record reserves the same band on top for the metadata chip, so the chip never covers the first line. */
+article.record { padding-top: 2.1rem; }
 article p, #notice, #status { color: var(--muted); font-size: .85rem; }
 pre { white-space: pre-wrap; overflow-wrap: anywhere; font: .9rem/1.55 ui-monospace, monospace; tab-size: 4; }
+
+/* Record roles: prompts, replies, notices, errors, and summaries look different. */
+article .role,
+article .label {
+  display: block;
+  margin-bottom: .35rem;
+  color: var(--muted);
+  font-size: .75rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+article[data-kind="user"] { background: var(--prompt); }
+article[data-kind="notice"] { background: transparent; border-style: dashed; font-style: italic; }
+article[data-kind="custom"],
+article[data-kind="compaction"],
+article[data-kind="branch_summary"],
+article[data-kind="branchSummary"],
+article[data-kind="compactionSummary"] {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+  font-size: .95rem;
+}
+article[data-error="true"] { border-color: var(--error); border-inline-start-width: 4px; background: var(--error-surface); }
+article[data-error="true"] .meta { color: var(--error); }
+
+/* Metadata stays in the accessibility tree and out of the layout. Read mode reveals it on hover or focus. */
+.meta {
+  position: absolute;
+  top: .6rem;
+  right: .8rem;
+  max-width: 60%;
+  margin: 0;
+  padding: 0 .35rem;
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: .85rem;
+  text-align: right;
+  /* One line always fits the reserved band, so a narrow viewport truncates instead of covering the body. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+:root[data-mode="read"] article .meta { opacity: 0; }
+:root[data-mode="read"] article:hover .meta,
+:root[data-mode="read"] article:focus-within .meta { opacity: 1; }
+
+/* Tool groups: one disclosure row per turn, with one collapsed step per record. */
+/* A group reserves the same metadata band as a record, so its failed-step chip never covers the summary line. */
+.tool-group { padding: 2.1rem 1rem .5rem; }
+.tool-summary { color: var(--summary); }
+.tool-steps { display: grid; gap: .4rem; margin-top: .5rem; }
+.tool-step { border: 1px solid var(--border); border-radius: 6px; padding: .4rem .6rem; }
+/* A step summary is always visible while the row is open, so its metadata is inline and never covered. */
+.tool-step .meta { position: static; max-width: none; margin-inline-start: .5rem; padding: 0; background: none; }
+.tool-step[data-error="true"] { border-color: var(--error); }
+.tool-step > pre { margin: .5rem 0 0; }
+.tool-failure { margin: .4rem 0 0; color: var(--error); font-size: .85rem; }
 summary { cursor: pointer; color: var(--summary); }
 button, input {
   background: var(--control);

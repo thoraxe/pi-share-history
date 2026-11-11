@@ -29,6 +29,7 @@ test('prefixed routes, canonical redirect, share links, assets, and SSE', async 
       assert.match(html, /src="\/pi-history\/theme.js"/);
       assert.match(html, /id="theme-toggle"/);
       assert.match(html, /id="markdown-toggle"/);
+      assert.match(html, /id="advanced-toggle"/);
       assert.match(html, /src="\/pi-history\/markdown.js"/);
       assert.match(html, /src="\/pi-history\/vendor\/purify.min.js"/);
       assert.match(html, /href="\/pi-history\/"/);
@@ -47,7 +48,7 @@ test('viewer uses its configured prefix for API, directory links, and live event
   const id = 'a'.repeat(32);
   for (const prefix of ['', '/pi-history']) for (const viewer of [false, true]) {
     const requests = [], events = [], links = [];
-    const makeNode = () => ({ textContent: '', children: [], dataset: {}, setAttribute() {}, addEventListener() {}, append(...nodes) { this.children.push(...nodes); }, replaceChildren(...nodes) { this.children = nodes; } });
+    const makeNode = () => ({ textContent: '', childNodes: [], children: [], dataset: {}, setAttribute() {}, addEventListener() {}, append(...nodes) { this.children.push(...nodes); }, replaceChildren(...nodes) { this.children = nodes; } });
     const elements = Object.fromEntries(['search', 'follow', 'records', 'status', 'title', 'draft', 'draft-text', 'markdown-toggle'].map(name => [name, makeNode()]));
     elements.search.value = '';
     const context = {
@@ -63,6 +64,8 @@ test('viewer uses its configured prefix for API, directory links, and live event
     assert.equal(requests[0], prefix + '/api/shares' + (viewer ? `/${id}` : ''));
     if (viewer) assert.equal(events[0], `${prefix}/api/shares/${id}/events`);
     else assert.equal(links[0].href, `${prefix}/s/${id}`);
+    // The directory filter walks visible text, so a real render leaves the directory status, not an error.
+    if (!viewer) assert.equal(elements.status.textContent, 'Public session directory');
   }
 });
 

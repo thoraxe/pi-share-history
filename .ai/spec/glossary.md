@@ -1,0 +1,19 @@
+# Glossary
+
+| Term | Meaning |
+|---|---|
+| **Service** | The self-hosted Node process. It owns SQLite, serves the API, and serves the viewer. Do not call it the server, except in the `server/` code path. |
+| **Extension** | The Pi plugin in `extension/`. It captures records and uploads them. |
+| **Share** | One published Pi session. A `shares` row holds its id, title, owner hash, timestamps, live flag, and revoked flag. |
+| **Transcript** | The ordered records of a share, as a viewer sees them. |
+| **Record** | One unit of published transcript (message, tool execution, notice, summary). The service stores each record as JSON in `records`. |
+| **Upload key** | The team-wide secret (`UPLOAD_KEY` / `PI_SHARE_KEY`). The service requires it to create a share. |
+| **Owner key** | The per-share secret returned at creation and persisted in Pi. It authorizes writes to that share. |
+| **Owner entry** | The Pi custom entry `pi-share-history-owner-v1`. It holds `{id, ownerKey, url, server}`. |
+| **Live share** | A share that accepts uploads and reports live. It stays live while its last upload is less than 20 seconds old. |
+| **Saved transcript** | A share that is readable but not live. |
+| **Draft** | A preview of unsent editor text. It lives only in memory and is never persisted. |
+| **Base path** | The path portion of `PUBLIC_URL` (for example `/pi-history`). All routes live under it. Also called the prefix. |
+| **Record kind** | The role label of a record, such as `user`, `assistant`, `tool`, `toolResult`, `notice`, or `compaction`. |
+| **Publisher** | A Pi user who runs the extension against the service. |
+| **Viewer** | A browser that reads the directory or a transcript. It needs no authentication. |

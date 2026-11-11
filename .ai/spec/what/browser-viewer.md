@@ -1,6 +1,6 @@
 # Browser Viewer
 
-The viewer is a static single-page client served by the service. It has two modes: a public directory of shares at the prefix root, and a single transcript at `/s/<id>`. It holds no state beyond the browser's local storage.
+The viewer is a static single-page client served by the service. It has two page types: a public directory of shares at the prefix root, and a single transcript at `/s/<id>`. It holds no state beyond the browser's local storage. A transcript has two view modes: Read mode and Advanced mode. Read mode is the default.
 
 ## Behavioral Rules
 
@@ -13,6 +13,36 @@ The viewer is a static single-page client served by the service. It has two mode
 5. Tool and tool-result content MUST be collapsed by default and expandable. Other records MUST be expanded.
 6. Errors MUST be marked distinctly and the error message MUST be shown with the record text.
 7. Follow-live MUST be on by default, MUST scroll to the newest record, and MUST stop when the user scrolls away from the bottom.
+
+### Read mode
+
+7a. The viewer MUST keep Advanced mode off on the first visit. The viewer MUST remember the choice in that browser. [PLANNED: #2]
+7b. Read mode MUST show `user` prompts, `assistant` replies, errors, and `notice` records. Read mode MUST hide every other record. [PLANNED: #2]
+7c. Advanced mode MUST show every record in the transcript. This set includes `tool` records, `toolResult` records, `bashExecution` records, summaries, and metadata. [PLANNED: #2]
+7d. The viewer MUST show an error record in Read mode and in Advanced mode. A mode change MUST NOT hide an error record. [PLANNED: #2]
+7e. A mode change MUST NOT fetch data again. It MUST NOT remove a record from the DOM. It MUST keep the scroll position. [PLANNED: #2]
+
+### Record roles
+
+7f. Each rendered record MUST expose its role in the DOM with a `data-kind` attribute. The attribute value MUST equal `record.kind`. The viewer MUST NOT derive the role from text. [PLANNED: #4]
+7g. Each role MUST have a distinct visual style. A prompt, a reply, an error, a notice, and a summary MUST look different. [PLANNED: #4]
+7h. A `user` prompt MUST show a `You` label and a tinted background. An `assistant` reply MUST show as plain prose. An error MUST show as an inline notice. A summary MUST show as subdued text. [PLANNED: #4]
+7i. A record MUST NOT use a raw kind name as a heading. The viewer MUST NOT show a generic label such as "Content / output". [PLANNED: #4]
+7j. Markdown text, code blocks, and tables MUST render in both themes. This rule applies to `user` and `assistant` records. [PLANNED: #4]
+
+### Tool groups
+
+7k. Consecutive `tool`, `toolResult`, and `bashExecution` records between two messages MUST render as one disclosure row. [PLANNED: #3]
+7l. The row summary MUST show a step count and the tool names from `record.label`. Example: `4 steps · read, edit, bash ×2`. [PLANNED: #3]
+7m. An open row MUST list each step with its tool name and its status. The body of each step MUST stay collapsed until the user opens it. [PLANNED: #3]
+7n. A failed step MUST show a warning in the row summary while the row is closed. A failed step MUST show a one-line notice in Read mode. [PLANNED: #3]
+7o. Grouping MUST keep each row stable across live appends. A live append MUST NOT duplicate a row. A live append MUST NOT reorder a row. [PLANNED: #3]
+
+### Metadata
+
+7p. Read mode MUST hide the timestamp, the model, and the status at rest. [PLANNED: #5]
+7q. Read mode MUST show the metadata on hover and on keyboard focus. Advanced mode MUST always show the metadata. [PLANNED: #5]
+7r. The viewer MUST NOT change the layout when the metadata appears. The metadata MUST stay in the accessibility tree. [PLANNED: #5]
 
 ### Markdown
 
@@ -45,6 +75,7 @@ The viewer is a static single-page client served by the service. It has two mode
 - `data-base-path` on `<html>` — service-injected route prefix used by all client URLs.
 - `pi-share-history-theme` localStorage key — `light`, `dark`, or absent for System.
 - `pi-share-history-markdown` localStorage key — `on` or `off`.
+- `pi-share-history-advanced` localStorage key — `on` for Advanced mode, or absent for Read mode.
 - Viewport and `color-scheme: light dark` metadata drive responsive and theme defaults.
 
 ## Constraints
@@ -57,4 +88,7 @@ The viewer is a static single-page client served by the service. It has two mode
 
 | Ticket | Summary |
 |---|---|
-| — | No planned changes recorded. |
+| #2 | Read-first default with an Advanced toggle. |
+| #3 | Group tool activity into one step row per turn. |
+| #4 | Role-based rendering for prompts, replies, notices, and summaries. |
+| #5 | Hide metadata in Read mode. |

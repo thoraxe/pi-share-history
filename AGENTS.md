@@ -12,10 +12,20 @@ Spec changes follow the Spec Workflow in `.ai/spec/README.md`.
 
 ## Review and merge
 
-- A pull request is ready when a code review reports no P0 and no P1 findings.
-- Add the `ready-to-merge` label to a ready pull request.
-- Enable auto-merge (squash) on the same pull request. Do not merge a pull request that lacks the label.
-- Merge the spec pull request first. Rebase the implementation branch onto `main` after the spec lands, because the branch no longer needs the spec change.
+Two gates. Do not skip one. Auto-merge is for implementation pull requests only.
+
+### Spec pull requests
+
+1. An agent writes the spec pull request.
+2. Agents review and fix the spec pull request in a loop until a review reports no P0 and no P1 findings.
+3. Stop. A human reviews the spec and applies the `spec:approved` label. An agent MUST NOT apply `spec:approved` and MUST NOT add `ready-to-merge`, enable auto-merge, or merge a spec pull request.
+
+### Implementation pull requests
+
+1. Build against the approved spec pull request. The implementation branch includes the spec change until the spec pull request merges.
+2. Agents review and fix the implementation pull request in a loop until a review reports no P0 and no P1 findings.
+3. An agent adds the `ready-to-merge` label and enables auto-merge (squash). Auto-merge merges the implementation pull request.
+4. Merge the spec pull request first when it is still open. Rebase the implementation branch onto `main` after the spec lands, because the branch no longer needs the spec change.
 
 ## Development
 

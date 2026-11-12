@@ -193,6 +193,17 @@ async function modeViewer({ records = [], savedAdvanced, blocked = false, markdo
 
 const articles = window => [...window.document.querySelectorAll('#records > article')];
 const toggle = window => window.document.getElementById('advanced-toggle');
+const pill = window => window.document.getElementById('activity');
+const announcement = window => window.document.getElementById('activity-live');
+// jsdom lays nothing out, so a live-update test states the numbers that rule 7 measures.
+const placeReader = (window, scrollY) => {
+  Object.defineProperty(window, 'innerHeight', { value: 500, configurable: true });
+  Object.defineProperty(window, 'scrollY', { value: scrollY, configurable: true });
+  Object.defineProperty(window.document.body, 'scrollHeight', { value: 5000, configurable: true });
+  window.dispatchEvent(new window.Event('scroll'));
+};
+const awayFromBottom = window => placeReader(window, 0);
+const atBottom = window => placeReader(window, 4500);
 const styleRules = () => [...new JSDOM(`<style>${readWeb('style.css')}</style>`).window.document.styleSheets[0].cssRules]
   .flatMap(rule => rule.style ? [rule] : rule.cssRules ? [...rule.cssRules] : [])
   .filter(rule => rule.selectorText);
@@ -211,6 +222,10 @@ const resolveColor = value => String(value ?? '')
 // jsdom paints no pseudo-class, so a hover or focus reveal is asserted against the rule that performs it.
 const revealsMeta = pseudo => styleRules().some(rule => /\[data-mode="read"\].*\.meta/.test(rule.selectorText)
   && rule.selectorText.includes(pseudo) && rule.style.getPropertyValue('opacity').trim() === '1');
+// jsdom applies no media query either, so a reduced-motion rule is asserted inside its own block.
+const reducedMotionRules = () => [...new JSDOM(`<style>${readWeb('style.css')}</style>`).window.document.styleSheets[0].cssRules]
+  .filter(rule => rule.media && /prefers-reduced-motion/.test(rule.media.mediaText))
+  .flatMap(rule => [...rule.cssRules]);
 // jsdom resolves `var()` to nothing, so a themed token only shows up as a use in the stylesheet.
 const usedProperties = () => new Set(styleRules().flatMap(rule => [...rule.style]
   .flatMap(name => [...String(rule.style.getPropertyValue(name)).matchAll(/var\((--[\w-]+)/g)].map(match => match[1]))));
@@ -726,7 +741,8 @@ test('blocked storage does not break the Advanced control (7a)', async () => {
   } finally { ui.dom.window.close(); }
 });
 
-// Compact share state. The state is a transcript header, so each test reads a rendered share.
+// Compact share state and the new-activity pill. The pill lives only on a transcript, and a reader
+// starts at the bottom, so each test first takes the reader away from it.
 const oneRecord = () => [rec('a1', 'assistant', { text: 'start', timestamp: 0 })];
 
 test('the header shows the share state as a dot and a state word (1b)', async () => {
@@ -752,4 +768,219 @@ test('the sync time is its own text next to the share state (1c)', async () => {
     assert.equal(state.nextElementSibling, sync);                 // The sync time sits next to the state.
     assert.doesNotMatch(state.textContent, /Synced|2024/);         // The share state carries no time.
   } finally { ui.dom.window.close(); }
+});
+
+test('the pill appears while the reader is away from the bottom and hides at the bottom (7u)', async () => {
+  const ui = await modeViewer({ records: oneRecord() });
+  try {
+    const { window } = ui;
+    // The first paint follows live, so the reader has seen everything and there is no pill.
+    assert.equal(pill(window).hidden, true);
+
+    awayFromBottom(window);
+    await ui.update([...oneRecord(), rec('a2', 'assistant', { text: 'more', timestamp: 1 })]);
+    assert.equal(pill(window).hidden, false);
+    assert.equal(pill(window).textContent, '1 new record');
+
+    atBottom(window);
+    assert.equal(pill(window).hidden, true);                      // Reaching the bottom hides it.
+
+    // A refresh with no new record keeps the zero count, so the pill stays hidden.
+    await ui.update([...oneRecord(), rec('a2', 'assistant', { text: 'more', timestamp: 1 })]);
+    assert.equal(pill(window).hidden, true);
+    assert.equal(announcement(window).textContent, '');
+  } finally { ui.dom.window.close(); }
+});
+
+test('showing and hiding the pill never changes the scroll position (7v)', async () => {
+  const ui = await modeViewer({ records: oneRecord() });
+  try {
+    const { window } = ui;
+    awayFromBottom(window);
+    const before = ui.scrolls;
+
+    await ui.update([...oneRecord(), rec('a2', 'assistant', { text: 'more', timestamp: 1 })]);
+    assert.equal(pill(window).hidden, false);
+    assert.equal(ui.scrolls, before);                             // The pill appeared without a scroll.
+
+    atBottom(window);
+    assert.equal(pill(window).hidden, true);
+    assert.equal(ui.scrolls, before);                             // And it disappeared without a scroll.
+  } finally { ui.dom.window.close(); }
+});
+
+test('the count counts the records the current mode shows and ignores the search filter (7w)', async () => {
+  const arrived = () => [...oneRecord(), rec('u1', 'user', { text: 'one', timestamp: 1 }), rec('a2', 'assistant', { text: 'two', timestamp: 2 })];
+  const ui = await modeViewer({ records: oneRecord() });
+  try {
+    const { window } = ui, document = window.document, search = document.getElementById('search');
+    awayFromBottom(window);
+    // The search hides every record on the page. The count ignores the filter.
+    search.value = 'nothing matches this';
+    search.dispatchEvent(new window.Event('input'));
+    assert.ok(articles(window).every(node => node.hidden));
+
+    await ui.update([...oneRecord(), rec('u1', 'user', { text: 'one', timestamp: 1 })]);
+    assert.equal(pill(window).textContent, '1 new record');
+
+    // One count per record, not one per turn.
+    await ui.update(arrived());
+    assert.equal(pill(window).textContent, '2 new records');
+    assert.equal(announcement(window).textContent, '2 new records');
+
+    // A record that arrived earlier is not counted twice.
+    await ui.update(arrived());
+    assert.equal(pill(window).textContent, '2 new records');
+  } finally { ui.dom.window.close(); }
+});
+
+test('the pill appears in Read mode and in Advanced mode (7x)', async () => {
+  // Read mode shows prompts and replies, so a tool group that arrives adds nothing to the count.
+  const read = await modeViewer({ records: oneRecord() });
+  try {
+    awayFromBottom(read.window);
+    await read.update([...oneRecord(), ...toolRecords(), rec('u1', 'user', { text: 'prompt', timestamp: 5 })]);
+    assert.equal(pill(read.window).hidden, false);
+    assert.equal(pill(read.window).textContent, '1 new record');
+  } finally { read.dom.window.close(); }
+
+  // Advanced mode shows every record, so each record that arrives counts.
+  const advancedUI = await modeViewer({ records: oneRecord(), savedAdvanced: 'on' });
+  try {
+    awayFromBottom(advancedUI.window);
+    await advancedUI.update([...oneRecord(), rec('t1', 'tool', { label: 'read', timestamp: 1 }), rec('t2', 'tool', { label: 'edit', timestamp: 2 })]);
+    assert.equal(pill(advancedUI.window).hidden, false);
+    assert.equal(pill(advancedUI.window).textContent, '2 new records');
+  } finally { advancedUI.dom.window.close(); }
+});
+
+test('one activation of the pill scrolls to the bottom and resumes follow-live (7y)', async () => {
+  const ui = await modeViewer({ records: oneRecord() });
+  try {
+    const { window } = ui, follow = window.document.getElementById('follow');
+    awayFromBottom(window);
+    await ui.update([...oneRecord(), rec('a2', 'assistant', { text: 'more', timestamp: 1 })]);
+    const before = ui.scrolls;
+
+    pill(window).click();
+    assert.ok(ui.scrolls > before);                               // One activation scrolls to the bottom.
+    assert.equal(pill(window).hidden, true);
+    assert.equal(follow.textContent, 'Following live');           // And follow-live resumed.
+
+    const resumed = ui.scrolls;
+    await ui.update([...oneRecord(), rec('a2', 'assistant', { text: 'more', timestamp: 1 }), rec('a3', 'assistant', { text: 'end', timestamp: 2 })]);
+    assert.ok(ui.scrolls > resumed);                              // The next record follows live again.
+  } finally { ui.dom.window.close(); }
+});
+
+test('the pill does not animate when the user requests reduced motion (7z)', () => {
+  // jsdom paints no animation and applies no media query, so both rules are asserted on the stylesheet.
+  const base = styleRules().find(rule => rule.selectorText === '#activity');
+  assert.match(base.style.getPropertyValue('animation'), /activity/);      // It animates by default.
+  const reduced = reducedMotionRules().filter(rule => rule.selectorText === '#activity');
+  assert.equal(reduced.length, 1);
+  assert.equal(reduced[0].style.getPropertyValue('animation').trim(), 'none');
+});
+
+test('the pill is reachable and operable with the keyboard (7aa)', async () => {
+  const ui = await modeViewer({ records: oneRecord() });
+  try {
+    const { window } = ui;
+    awayFromBottom(window);
+    await ui.update([...oneRecord(), rec('a2', 'assistant', { text: 'more', timestamp: 1 })]);
+    const node = pill(window);
+    assert.equal(node.hidden, false);
+    // A native button is in the tab order without a tabindex, and Enter or Space raise a click.
+    assert.equal(node.tagName, 'BUTTON');
+    assert.equal(node.getAttribute('tabindex'), null);
+    assert.equal(node.disabled, false);
+
+    node.focus();
+    assert.equal(window.document.activeElement, node);
+    const before = ui.scrolls;
+    node.click();                                                 // The activation a key press produces.
+    assert.ok(ui.scrolls > before);
+    assert.equal(node.hidden, true);
+  } finally { ui.dom.window.close(); }
+});
+
+test('a count change is announced to assistive technology (7ab)', async () => {
+  const arrived = () => [...oneRecord(), rec('u1', 'user', { text: 'one', timestamp: 1 }), rec('a2', 'assistant', { text: 'two', timestamp: 2 })];
+  const ui = await modeViewer({ records: oneRecord() });
+  try {
+    const { window } = ui, live = announcement(window);
+    assert.equal(live.getAttribute('role'), 'status');
+    assert.equal(live.getAttribute('aria-live'), 'polite');
+    assert.equal(live.closest('[hidden]'), null);                 // The region stays in the accessibility tree.
+    assert.notEqual(window.getComputedStyle(live).display, 'none');
+    assert.equal(live.textContent, '');                           // Nothing to announce at first.
+
+    awayFromBottom(window);
+    await ui.update(arrived());
+    assert.equal(live.textContent, '2 new records');
+    await ui.update([...arrived(), rec('a3', 'assistant', { text: 'three', timestamp: 3 })]);
+    assert.equal(live.textContent, '3 new records');              // The new count is announced again.
+
+    atBottom(window);
+    assert.equal(live.textContent, '');                           // The reset leaves no stale count.
+  } finally { ui.dom.window.close(); }
+});
+
+test('the pill appears at the bottom of the viewport (7ac)', async () => {
+  const ui = await modeViewer({ records: oneRecord() });
+  try {
+    const { window } = ui;
+    awayFromBottom(window);
+    await ui.update([...oneRecord(), rec('a2', 'assistant', { text: 'more', timestamp: 1 })]);
+    const node = pill(window), style = window.getComputedStyle(node);
+    assert.equal(node.hidden, false);
+    assert.equal(style.position, 'fixed');                        // It does not move with the records.
+    assert.equal(style.bottom, '1rem');                           // It sits at the bottom edge.
+    assert.equal(node.parentElement, window.document.body);       // Outside the scrolling content.
+    assert.equal(node.closest('main'), null);
+  } finally { ui.dom.window.close(); }
+});
+
+test('a 404, a `removed` event, or a reconnect hides the pill and resets the count (23a)', async () => {
+  const arrived = () => [...oneRecord(), rec('a2', 'assistant', { text: 'more', timestamp: 1 }), rec('u1', 'user', { text: 'hi', timestamp: 2 })];
+  const show = async ui => {
+    awayFromBottom(ui.window);
+    await ui.update(arrived());
+    assert.equal(pill(ui.window).textContent, '2 new records');
+    assert.equal(pill(ui.window).hidden, false);
+  };
+
+  // 21, 23a: a 404 clears the transcript, so the pill and the count go with it.
+  const missing = await modeViewer({ records: oneRecord() });
+  try {
+    await show(missing);
+    await missing.failure(404);
+    assert.equal(pill(missing.window).hidden, true);
+    assert.equal(announcement(missing.window).textContent, '');
+  } finally { missing.dom.window.close(); }
+
+  // 22, 23a: a `removed` event clears the transcript in the same way.
+  const revoked = await modeViewer({ records: oneRecord() });
+  try {
+    await show(revoked);
+    revoked.source.listeners.removed();
+    assert.equal(pill(revoked.window).hidden, true);
+    assert.equal(announcement(revoked.window).textContent, '');
+  } finally { revoked.dom.window.close(); }
+
+  // 23, 23a: a reconnect drops the count, and the re-fetched records do not count again.
+  const interrupted = await modeViewer({ records: oneRecord() });
+  try {
+    await show(interrupted);
+    interrupted.source.onerror();
+    assert.equal(pill(interrupted.window).hidden, true);
+
+    await interrupted.update(arrived());
+    assert.equal(pill(interrupted.window).textContent, '0 new records');
+    assert.equal(pill(interrupted.window).hidden, true);
+
+    await interrupted.update([...arrived(), rec('a3', 'assistant', { text: 'later', timestamp: 3 })]);
+    assert.equal(pill(interrupted.window).textContent, '1 new record');
+    assert.equal(pill(interrupted.window).hidden, false);
+  } finally { interrupted.dom.window.close(); }
 });

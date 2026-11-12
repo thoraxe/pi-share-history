@@ -4,6 +4,9 @@ const id = location.pathname.slice(basePath.length).match(/^\/s\/([\w-]{32})$/)?
 const nodes = new Map();
 const groupSteps = new WeakMap();
 let follow = true, busy = false, again = false, stream, draftExpiry, currentUnits = null;
+// Rule 7w counts records, so the viewer remembers every record it has already counted or shown.
+const seenRecords = new Set();
+let pending = 0;
 const markdownKey = 'pi-share-history-markdown';
 const advancedKey = 'pi-share-history-advanced';
 const toolKinds = new Set(['tool', 'toolResult', 'bashExecution']);
@@ -96,6 +99,9 @@ function unitVisible(unit) {
   if (advanced) return true;
   return unit.records ? unit.records.some(isError) : readKinds.has(unit.record.kind) || isError(unit.record);
 }
+// Rule 7w counts records, not turns. Read mode shows a group as its failure notice, so only a failed
+// step counts there, and Advanced mode shows every record.
+const recordShown = (unit, record) => advanced || isError(record) || (!unit.records && readKinds.has(record.kind));
 // Rule 4 filters on visible text, so a hidden element and a closed disclosure contribute nothing.
 // Read mode also keeps the metadata chip out of the match, because it is hidden at rest.
 function visibleText(target) {
@@ -115,6 +121,16 @@ function clearTitle() {
   setText($('title'), '');
   document.title = 'Pi team history';
 }
+// A cleared transcript keeps no heading, node, or count from the share that is gone.
+function clearTranscript() {
+  stream?.close();
+  $('records').replaceChildren();
+  nodes.clear();
+  currentUnits = [];
+  seenRecords.clear();
+  clearTitle();
+  resetActivity();
+}
 function applyView() {
   const query = $('search').value.toLowerCase();
   if (!currentUnits) {
@@ -130,11 +146,39 @@ function applyView() {
   }
 }
 $('search').addEventListener('input', applyView);
+// Rules 7u, 7v, and 7ac: the pill is fixed to the bottom of the viewport, so a show or a hide moves
+// nothing on the page.
+function renderActivity() {
+  const pill = $('activity');
+  if (!pill) return;
+  const label = `${pending} new record${pending === 1 ? '' : 's'}`;
+  pill.hidden = !id || !pending;
+  setText(pill, label);
+  // Rule 7ab announces the new count. A count of zero clears the region, because the pill is hidden
+  // then and there is nothing new to announce.
+  setText($('activity-live'), pending ? label : '');
+}
+// Rule 23a restarts the count when the transcript is gone or the stream dropped.
+function resetActivity() {
+  pending = 0;
+  renderActivity();
+}
+// Rules 7 and 7y: one activation scrolls to the newest record and resumes follow-live.
+function followLive() {
+  follow = true;
+  pending = 0;
+  $('follow').textContent = 'Following live';
+  renderActivity();
+  window.scrollTo(0, document.body.scrollHeight);
+}
 $('follow').hidden = !id;
-$('follow').onclick = () => { follow = true; window.scrollTo(0, document.body.scrollHeight); $('follow').textContent = 'Following live'; };
+$('follow').onclick = followLive;
+$('activity')?.addEventListener('click', followLive);
 window.addEventListener('scroll', () => {
   follow = window.innerHeight + window.scrollY >= document.body.scrollHeight - 100;
   $('follow').textContent = follow ? 'Following live' : 'Follow live';
+  // Rule 7u: the bottom is where every record is visible, so the count restarts there.
+  if (follow && pending) resetActivity();
 }, { passive: true });
 function createRecordNode() {
   const node = document.createElement('article');
@@ -263,6 +307,21 @@ function buildUnits(records) {
   }
   return units;
 }
+// Rule 7w counts the records that arrive while the reader is away from the bottom. A record counts
+// once, and only when the current view mode shows it.
+function noteArrivals(units) {
+  let arrived = 0;
+  for (const unit of units) {
+    for (const record of unit.records || [unit.record]) {
+      if (seenRecords.has(record.id)) continue;
+      seenRecords.add(record.id);
+      if (recordShown(unit, record)) arrived++;
+    }
+  }
+  // Rule 7u: a reader at the bottom sees the new records, so only an away reader accrues a count.
+  pending = follow ? 0 : pending + arrived;
+  renderActivity();
+}
 function renderTranscript(data) {
   // Clear the temporary preview before rendering the submitted history.
   // Both changes paint together; drafts never become transcript nodes.
@@ -294,6 +353,7 @@ function renderTranscript(data) {
     node.remove?.();
     nodes.delete(key);
   }
+  noteArrivals(currentUnits);
 }
 async function refresh() {
   if (busy) { again = true; return; }
@@ -302,7 +362,7 @@ async function refresh() {
     const response = await fetch(basePath + (id ? `/api/shares/${id}` : '/api/shares'), { signal: AbortSignal.timeout(10000) });
     if (!response.ok) {
       if (response.status === 404) {
-        stream?.close(); $('records').replaceChildren(); nodes.clear(); currentUnits = []; clearTitle();
+        clearTranscript();
         throw new Error('Transcript deleted, revoked, or not found');
       }
       throw new Error(`Server returned ${response.status}`);
@@ -333,6 +393,6 @@ void refresh();
 if (id) {
   stream = new EventSource(`${basePath}/api/shares/${id}/events`);
   stream.addEventListener('update', () => void refresh());
-  stream.addEventListener('removed', () => { renderDraft(null); stream.close(); $('records').replaceChildren(); nodes.clear(); currentUnits = []; clearTitle(); setStatus('This transcript was revoked or deleted.'); });
-  stream.onerror = () => { renderDraft(null); setStatus('Connection interrupted — reconnecting…'); };
+  stream.addEventListener('removed', () => { renderDraft(null); clearTranscript(); setStatus('This transcript was revoked or deleted.'); });
+  stream.onerror = () => { renderDraft(null); resetActivity(); setStatus('Connection interrupted — reconnecting…'); };
 } else setInterval(refresh, 10000);

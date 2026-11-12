@@ -13,12 +13,13 @@
 | **Owner entry** | The Pi custom entry `pi-share-history-owner-v1`. It holds `{id, ownerKey, url, server}`. |
 | **Live share** | A share that accepts uploads and reports live. It stays live while its last upload is less than 20 seconds old. |
 | **Saved transcript** | A share that is readable but not live. |
+| **Share state** | The live or saved condition of a share, shown in the header as a dot and a state word. |
 | **Draft** | A preview of unsent editor text. It lives only in memory and is never persisted. |
 | **Base path** | The path portion of `PUBLIC_URL` (for example `/pi-history`). All routes live under it. Also called the prefix. |
 | **Record kind** | The role label of a record, such as `user`, `assistant`, `tool`, `toolResult`, `notice`, or `compaction`. |
 | **Read mode** | The default transcript view. It shows prompts, replies, errors, and notices. It hides tool activity, summaries, and metadata at rest. |
 | **Advanced mode** | The optional transcript view. It shows every record, including tool activity, summaries, and metadata. |
-| **New-activity pill** | A control in a transcript. It appears when records that the current view mode shows arrive while the user is away from the newest record. It shows the count of those records and accepts them when the user activates it. |
+| **New-activity pill** | A control at the bottom of the viewport in a transcript. It appears when records that the current view mode shows arrive while the user is away from the bottom. It shows the count of those records and accepts them when the user activates it. |
 | **Tool group** | One disclosure row for consecutive `tool`, `toolResult`, and `bashExecution` records between two messages. |
 | **Publisher** | A Pi user who runs the extension against the service. |
 | **Viewer** | A browser that reads the directory or a transcript. It needs no authentication. |

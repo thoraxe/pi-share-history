@@ -71,7 +71,9 @@ header {
   border-bottom: 1px solid var(--border);
 }
 a { color: var(--link); }
-main { max-width: 1050px; margin: auto; padding: 1rem; }
+/* Rules 7ac and 7v: the transcript reserves the pill's band at all times. The fixed pill therefore
+   covers no text, and a show or a hide still moves nothing on the page. */
+main { max-width: 1050px; margin: auto; padding: 1rem 1rem 4rem; }
 h1 { font-size: 1.5rem; }
 h2 { font-size: 1rem; margin: 0; }
 article {
@@ -85,7 +87,7 @@ article {
 }
 /* A record reserves the same band on top for the metadata chip, so the chip never covers the first line. */
 article.record { padding-top: 2.1rem; }
-article p, #notice, #status { color: var(--muted); font-size: .85rem; }
+article p, #notice, #status, #sync { color: var(--muted); font-size: .85rem; }
 pre { white-space: pre-wrap; overflow-wrap: anywhere; font: .9rem/1.55 ui-monospace, monospace; tab-size: 4; }
 
 /* Record roles: prompts, replies, notices, errors, and summaries look different. */
@@ -160,6 +162,43 @@ button, input {
 button { cursor: pointer; }
 #theme-toggle { margin-inline-start: auto; }
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+
+/* Rules 7ac and 7v: the pill is out of flow at the bottom of the viewport, so a show or a hide moves nothing. */
+#activity {
+  position: fixed;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1;
+  padding: .6rem 1rem;
+  border-radius: 999px;
+  background: var(--control);
+  border: 1px solid var(--control-border);
+  color: var(--foreground);
+  font-weight: 600;
+  box-shadow: 0 2px 8px var(--border);
+  animation: activity-in .18s ease-out;
+}
+@keyframes activity-in {
+  from { opacity: 0; transform: translate(-50%, .5rem); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+/* Rule 7z: the pill does not animate when the user requests reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  #activity { animation: none; }
+}
+/* Rule 7ab: the live region stays in the accessibility tree and out of the way. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
 #draft { border-style: dashed; border-color: var(--control-border); }
 #draft h2 { color: var(--summary); }
 .markdown-content { line-height: 1.65; overflow-wrap: anywhere; }

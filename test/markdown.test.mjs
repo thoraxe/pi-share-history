@@ -822,6 +822,27 @@ test('showing and hiding the pill never changes the scroll position (7v)', async
   } finally { ui.dom.window.close(); }
 });
 
+test('the transcript reserves a constant bottom band, so the pill covers no text (7v, 7ac)', async () => {
+  const ui = await modeViewer({ records: oneRecord() });
+  try {
+    const { window } = ui, document = window.document;
+    const transcript = document.getElementById('records').closest('main');
+    assert.ok(transcript, 'the records must sit in the transcript container');
+    const reserve = () => window.getComputedStyle(transcript).paddingBottom;
+    assert.equal(pill(window).hidden, true);
+    const idle = reserve();
+    // The band must clear the pill: its offset from the bottom edge plus its own padding.
+    const box = window.getComputedStyle(pill(window));
+    const band = parseFloat(box.bottom) + parseFloat(box.paddingTop) + parseFloat(box.paddingBottom);
+    assert.ok(parseFloat(idle) >= band, `the reserved band ${idle} must clear the pill band ${band}rem`);
+
+    awayFromBottom(window);
+    await ui.update([...oneRecord(), rec('a2', 'assistant', { text: 'more', timestamp: 1 })]);
+    assert.equal(pill(window).hidden, false);
+    assert.equal(reserve(), idle);                                // The band is reserved either way.
+  } finally { ui.dom.window.close(); }
+});
+
 test('the count counts the records the current mode shows and ignores the search filter (7w)', async () => {
   const arrived = () => [...oneRecord(), rec('u1', 'user', { text: 'one', timestamp: 1 }), rec('a2', 'assistant', { text: 'two', timestamp: 2 })];
   const ui = await modeViewer({ records: oneRecord() });

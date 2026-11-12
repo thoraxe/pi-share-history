@@ -71,7 +71,9 @@ header {
   border-bottom: 1px solid var(--border);
 }
 a { color: var(--link); }
-main { max-width: 1050px; margin: auto; padding: 1rem; }
+/* Rules 7ac and 7v: the transcript reserves the pill's band at all times. The fixed pill therefore
+   covers no text, and a show or a hide still moves nothing on the page. */
+main { max-width: 1050px; margin: auto; padding: 1rem 1rem 4rem; }
 h1 { font-size: 1.5rem; }
 h2 { font-size: 1rem; margin: 0; }
 article {

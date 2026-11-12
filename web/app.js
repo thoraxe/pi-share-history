@@ -9,6 +9,8 @@ let follow = true, busy = false, again = false, stream, draftExpiry, currentUnit
 // mode change recomputes the pill count through the visibility rules of the new mode.
 const seenRecords = new Set();
 const arrivedRecords = new Set();
+// The first payload is the page, not an arrival, so it seeds `seenRecords` and counts nothing.
+let seeded = false;
 const markdownKey = 'pi-share-history-markdown';
 const advancedKey = 'pi-share-history-advanced';
 const toolKinds = new Set(['tool', 'toolResult', 'bashExecution']);
@@ -326,11 +328,14 @@ function buildUnits(records) {
 // Rule 7w records which records arrived while the reader is away from the bottom. A record counts once,
 // and the count is derived from the current mode (see `pendingCount`) rather than frozen here.
 function noteArrivals(units) {
+  // The first payload paints the page, so a reader who lands away from the bottom counts nothing.
+  const seed = !seeded;
+  seeded = true;
   for (const unit of units) {
     for (const record of unit.records || [unit.record]) {
       if (seenRecords.has(record.id)) continue;
       seenRecords.add(record.id);
-      if (!follow) arrivedRecords.add(record.id);
+      if (!seed && !follow) arrivedRecords.add(record.id);
     }
   }
   // Rule 7u: a reader at the bottom sees the new records, so only an away reader accrues a count.

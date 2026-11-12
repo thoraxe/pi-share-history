@@ -148,7 +148,7 @@ const toolRecords = () => [
   rec('b1', 'bashExecution', { timestamp: 4 }),
 ];
 
-async function modeViewer({ records = [], savedAdvanced, blocked = false, markdown = false, draft, live = false } = {}) {
+async function modeViewer({ records = [], savedAdvanced, blocked = false, markdown = false, draft, live = false, landAway = false } = {}) {
   const dom = new JSDOM(readWeb('index.html').replaceAll('__BASE_PATH__', '/pi-history'), {
     url: `https://logs.example.com/pi-history/s/${'a'.repeat(32)}`, runScripts: 'outside-only',
   });
@@ -171,6 +171,8 @@ async function modeViewer({ records = [], savedAdvanced, blocked = false, markdo
     close() { this.readyState = 2; }
   };
   window.eval(readWeb('app.js'));
+  // A restored scroll position turns follow-live off, so the first payload paints while the reader is away.
+  if (landAway) awayFromBottom(window);
   await tick();
   return {
     dom, window,
@@ -852,6 +854,22 @@ test('a mode switch recomputes the count from the records that arrived (7w, 7x)'
     assert.equal(window.document.documentElement.dataset.mode, 'read');
     assert.equal(pill(window).textContent, '1 new record');       // Back to what Read mode shows.
     assert.equal(announcement(window).textContent, '1 new record');
+  } finally { ui.dom.window.close(); }
+});
+
+test('the first payload is the page, not an arrival, when the reader lands away from the bottom (7w)', async () => {
+  const records = [rec('a1', 'assistant', { text: 'start', timestamp: 0 }), rec('u1', 'user', { text: 'prompt', timestamp: 1 })];
+  const ui = await modeViewer({ records, landAway: true });
+  try {
+    const { window } = ui;
+    // A restored scroll position keeps follow-live off, so the page render must count none of its records.
+    assert.equal(pill(window).hidden, true);
+    assert.equal(pill(window).textContent, '0 new records');
+    assert.equal(announcement(window).textContent, '');
+
+    await ui.update([...records, rec('a2', 'assistant', { text: 'later', timestamp: 2 })]);
+    assert.equal(pill(window).hidden, false);
+    assert.equal(pill(window).textContent, '1 new record');       // A later arrival still counts.
   } finally { ui.dom.window.close(); }
 });
 

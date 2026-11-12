@@ -18,6 +18,7 @@
 | **Record kind** | The role label of a record, such as `user`, `assistant`, `tool`, `toolResult`, `notice`, or `compaction`. |
 | **Read mode** | The default transcript view. It shows prompts, replies, errors, and notices. It hides tool activity, summaries, and metadata at rest. |
 | **Advanced mode** | The optional transcript view. It shows every record, including tool activity, summaries, and metadata. |
+| **New-activity pill** | A control in a transcript. It appears when records that the current view mode shows arrive while the user is away from the newest record. It shows the count of those records and accepts them when the user activates it. |
 | **Tool group** | One disclosure row for consecutive `tool`, `toolResult`, and `bashExecution` records between two messages. |
 | **Publisher** | A Pi user who runs the extension against the service. |
 | **Viewer** | A browser that reads the directory or a transcript. It needs no authentication. |

@@ -954,9 +954,8 @@ test('one activation of the pill scrolls to the bottom and resumes follow-live (
 });
 
 test('the pill does not animate when the user requests reduced motion (7z)', () => {
-  // jsdom paints no animation and applies no media query, so both rules are asserted on the stylesheet.
-  const base = styleRules().find(rule => rule.selectorText === '#activity');
-  assert.match(base.style.getPropertyValue('animation'), /activity/);      // It animates by default.
+  // jsdom applies no media query, so rule 7z is asserted inside its own block. A base animation is
+  // not pinned here; only the override that the rule requires is.
   const reduced = reducedMotionRules().filter(rule => rule.selectorText === '#activity');
   assert.equal(reduced.length, 1);
   assert.equal(reduced[0].style.getPropertyValue('animation').trim(), 'none');

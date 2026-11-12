@@ -6,7 +6,7 @@ The viewer is a static single-page client served by the service. It has two page
 
 ### Rendering
 
-1. `/s/<id>` MUST render the transcript title, live/saved status, sync time, and every record in order.
+1. `/s/<id>` MUST render the transcript title, the share state, the sync time, and every record in order.
 1b. The header MUST show the share state as a dot and a state word. The state word MUST read `Live` for a live share and `Saved` for a saved transcript. [PLANNED: #6]
 1c. The share state MUST NOT include the sync time. The header MUST show the sync time as its own text next to the share state. [PLANNED: #6]
 2. The directory MUST list non-revoked shares with title, live indicator, and last-updated time, and MUST refresh every 10 seconds.
@@ -50,7 +50,7 @@ The viewer is a static single-page client served by the service. It has two page
 
 7u. The viewer MUST show a new-activity pill when records that the current view mode shows arrive while the user is away from the bottom. The viewer MUST hide the pill when the count is zero or when the user reaches the bottom. [PLANNED: #6]
 7v. The viewer MUST NOT change the scroll position when the new-activity pill appears or disappears. [PLANNED: #6]
-7w. The new-activity pill MUST show the count of records that the current view mode shows and that arrived after the user left the bottom. [PLANNED: #6]
+7w. The new-activity pill MUST show the count of records that the current view mode shows and that arrived since the user last reached the bottom. The count MUST ignore the search filter. [PLANNED: #6]
 7x. The new-activity pill MUST appear in Read mode and in Advanced mode. [PLANNED: #6]
 7y. One activation of the new-activity pill MUST scroll to the bottom and MUST resume follow-live. [PLANNED: #6]
 7z. The viewer MUST NOT animate the new-activity pill when the user requests reduced motion. [PLANNED: #6]

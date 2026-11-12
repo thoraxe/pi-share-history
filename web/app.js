@@ -2,6 +2,8 @@ const $ = id => document.getElementById(id);
 const basePath = document.documentElement.dataset.basePath || '';
 const id = location.pathname.slice(basePath.length).match(/^\/s\/([\w-]{32})$/)?.[1];
 const nodes = new Map();
+// Directory rows are reused by share id, so a 10 s refresh keeps keyboard focus and the revealed absolute time.
+const directoryRows = new Map();
 const groupSteps = new WeakMap();
 let follow = true, busy = false, again = false, stream, draftExpiry, currentUnits = null;
 // Rule 7w counts records, so the viewer remembers every record it has already shown, and the ids of the
@@ -25,6 +27,16 @@ try { markdownEnabled = localStorage.getItem(markdownKey) !== 'off'; } catch { /
 try { advanced = localStorage.getItem(advancedKey) === 'on'; } catch { /* Keep the page-local default. */ }
 const setText = (element, text) => { if (element && element.textContent !== text) element.textContent = text; };
 const when = value => new Date(value).toLocaleString();
+// Rule 2b shows the last-updated time as a distance from now. Rule 2c keeps the absolute timestamp for
+// hover, focus, and assistive technology. The spec fixes no unit, rounding, or locale.
+function relativeTime(value) {
+  const elapsed = Date.now() - value;
+  if (!Number.isFinite(elapsed) || elapsed < 60000) return 'just now';
+  for (const [size, suffix] of [[31536000000, 'y'], [2592000000, 'mo'], [86400000, 'd'], [3600000, 'h'], [60000, 'm']]) {
+    if (elapsed >= size) return `${Math.floor(elapsed / size)}${suffix} ago`;
+  }
+  return 'just now';
+}
 // Rules 1b and 1c keep the share state and the sync time in their own parts of the header.
 function setStatus(state, sync = '') {
   setText($('status'), state);
@@ -112,10 +124,11 @@ const recordVisible = record => advanced || isError(record) || readKinds.has(rec
 const unitVisible = unit => unit.records ? unit.records.some(recordVisible) : recordVisible(unit.record);
 // Rule 4 filters on visible text, so a hidden element and a closed disclosure contribute nothing.
 // Read mode also keeps the metadata chip out of the match, because it is hidden at rest.
+// The directory absolute timestamp is hidden at rest too, so it never matches before the reader reveals it.
 function visibleText(target) {
   // A text node has no tag name and contributes its own text.
   if (!target.tagName) return target.textContent;
-  if (target.hidden || (!advanced && target.classList.contains('meta'))) return '';
+  if (target.hidden || (!advanced && target.classList.contains('meta')) || target.classList.contains('absolute')) return '';
   if (target.tagName === 'DETAILS' && !target.open) {
     const summary = target.querySelector(':scope > summary');
     return summary ? visibleText(summary) : '';
@@ -386,6 +399,64 @@ function renderTranscript(data) {
   }
   noteArrivals(currentUnits);
 }
+// Rules 2a-2d: each row shows a record count and a relative time at rest, keeps the absolute timestamp
+// in the accessibility tree, and stays in the order that the API returns. Row nodes are reused and moved
+// only when new or out of order, so a refresh does not drop focus from a row link (rule 2c).
+function renderDirectory(data) {
+  currentUnits = null;
+  const container = $('records'), keep = new Set(), rows = [];
+  for (const share of data) {
+    keep.add(share.id);
+    let row = directoryRows.get(share.id);
+    if (!row) {
+      row = {
+        article: document.createElement('article'), link: document.createElement('a'), meta: document.createElement('p'),
+        state: document.createElement('span'), time: document.createElement('time'),
+        relative: document.createElement('span'), absolute: document.createElement('span'), count: document.createElement('span'),
+      };
+      row.meta.className = 'share-meta';
+      row.state.className = 'share-state';
+      row.time.className = 'share-time';
+      row.relative.className = 'relative';
+      row.absolute.className = 'absolute';
+      row.count.className = 'share-count';
+      // The relative time is decoration for sighted readers. The absolute timestamp is the value that
+      // assistive technology reads, and CSS reveals it on hover and on focus.
+      row.relative.setAttribute('aria-hidden', 'true');
+      row.time.append(row.relative, row.absolute);
+      row.meta.append(row.state, row.time, row.count);
+      row.article.append(row.link, row.meta);
+      directoryRows.set(share.id, row);
+    }
+    row.link.href = `${basePath}/s/${share.id}`;
+    setText(row.link, share.title);
+    row.state.dataset.live = share.live ? 'true' : 'false';
+    setText(row.state, share.live ? '● Live' : 'Saved');
+    row.time.dateTime = new Date(share.updated).toISOString();
+    setText(row.relative, relativeTime(share.updated));
+    setText(row.absolute, when(share.updated));
+    setText(row.count, `${share.count ?? 0} record${share.count === 1 ? '' : 's'}`);
+    rows.push(row.article);
+  }
+  for (const [shareId, row] of directoryRows) {
+    if (keep.has(shareId)) continue;
+    row.article.remove?.();
+    directoryRows.delete(shareId);
+  }
+  let previous = null;
+  // Moving a row detaches it, which blurs its link. Remember the focused share and restore it after the order.
+  const focused = document.activeElement?.closest?.('#records > article')?.querySelector?.('a[href]')?.getAttribute('href') || '';
+  for (const article of rows) {
+    // A row that already follows its predecessor stays put. Moving it would drop focus and the selection.
+    const reference = previous ? previous.nextElementSibling : container.firstElementChild;
+    if (reference !== article) container.insertBefore(article, reference);
+    previous = article;
+  }
+  if (focused) {
+    const target = container.querySelector(`a[href="${focused}"]`);
+    if (target && document.activeElement !== target) target.focus();
+  }
+}
 async function refresh() {
   if (busy) { again = true; return; }
   busy = true;
@@ -403,14 +474,8 @@ async function refresh() {
     // A clear during the fetch owns the page now, so this payload is discarded (rules 21 and 22).
     if (started !== generation) return;
     if (!id) {
-      currentUnits = null;
       setStatus('Public session directory');
-      $('records').replaceChildren(...data.map(share => {
-        const article = document.createElement('article'), link = document.createElement('a'), meta = document.createElement('p');
-        link.href = `${basePath}/s/${share.id}`; link.textContent = share.title;
-        meta.textContent = `${share.live ? '● Live' : 'Saved'} · Updated ${when(share.updated)}`;
-        article.append(link, meta); return article;
-      }));
+      renderDirectory(data);
     } else {
       renderTranscript(data);
     }

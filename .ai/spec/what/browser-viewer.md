@@ -10,10 +10,10 @@ The viewer is a static single-page client served by the service. It has two page
 1b. The header MUST show the share state as a dot and a state word. The state word MUST read `Live` for a live share and `Saved` for a saved transcript. [DONE: #6]
 1c. The share state MUST NOT include the sync time. The header MUST show the sync time as its own text next to the share state. [DONE: #6]
 2. The directory MUST list non-revoked shares with title, live indicator, and last-updated time, and MUST refresh every 10 seconds.
-2a. The directory MUST show the record count for each share. [PLANNED: #9]
-2b. The directory MUST show the last-updated time as a relative time at rest. Example: `2h ago`. [PLANNED: #9]
-2c. The directory MUST show the absolute timestamp on hover and on keyboard focus. The absolute timestamp MUST stay in the accessibility tree. [PLANNED: #9]
-2d. The directory MUST show the shares in the order that the API returns. [PLANNED: #9]
+2a. The directory MUST show the record count for each share. [DONE: #9]
+2b. The directory MUST show the last-updated time as a relative time at rest. Example: `2h ago`. [DONE: #9]
+2c. The directory MUST show the absolute timestamp on hover and on keyboard focus. The absolute timestamp MUST stay in the accessibility tree. [DONE: #9]
+2d. The directory MUST show the shares in the order that the API returns. [DONE: #9]
 3. A transcript page MUST open an SSE connection. It MUST re-fetch the transcript on each `update` event. It MUST use the browser's built-in reconnection on errors.
 4. Search MUST filter the currently rendered page by case-insensitive substring match over visible text.
 5. Tool and tool-result content MUST be collapsed by default and expandable. Other records MUST be expanded.
@@ -107,4 +107,4 @@ The viewer is a static single-page client served by the service. It has two page
 
 | Ticket | Summary |
 |---|---|
-| #9 | The directory shows a record count per share and a relative last-updated time with the absolute time on hover. |
+| — | No planned changes recorded. |

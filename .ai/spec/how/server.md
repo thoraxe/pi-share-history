@@ -18,7 +18,7 @@
 ## Data Flow
 
 1. Global security headers are set, then the URL is parsed and the configured prefix is stripped into `path`.
-2. `/health`, directory, and create routes are handled before the share pattern match.
+2. `/health`, directory, and create routes are handled before the share pattern match. The directory query returns `id, title, created, updated, live, count` in one statement. It computes the effective `live` value in SQL and orders live shares first, then `updated` descending (rules 11a-11c).
 3. The regex `^/api/shares/([\w-]{32})(?:/(records|events|stop|revoke|draft))?$` splits the share id and action.
 4. The service fetches the share row once. For non-GET requests it authorizes the token against `shares.owner`, a SHA-256 of the owner key. It then checks `revoked`.
 5. Writes notify viewers only after the database change is committed. Delete and revoke are different: they notify, then close the streams.
@@ -29,7 +29,8 @@
 
 - **Schema:** `shares(id PK, owner, title, created, updated, live, revoked)` and `records(share FK CASCADE, id, body, position, PK(share,id))`. An index on `(share, position)` orders the records. The service enables WAL mode and foreign keys on the connection.
 - **Owner stored as hash:** `shares.owner = sha256(ownerKey)`. The `equal` helper hashes both arguments, so it hashes the request token twice. Verification still matches.
-- **Status derived, not stored:** `shares.live` is an intent flag. A read reports live only when the flag is set and the last update is less than 20 seconds old.
+- **Status derived, not stored:** `shares.live` is an intent flag. A read reports live only when the flag is set and the last update is less than 20 seconds old. The directory query repeats that test in SQL, so the `live` field and the live-first order agree.
+- **Directory count in one query:** `GET /api/shares` selects `(SELECT count(*) FROM records r WHERE r.share=s.id) AS count`. It is one statement for the whole page, not one query for each share (rule 11b).
 - **Two clocks:** `shares.updated` advances on record and draft writes. The SSE heartbeat every 10 s only keeps connections alive and does not change `updated`.
 - **Quota inside a transaction:** the batch inserts the records. The service then recomputes count and bytes for the share. It commits, or it rolls back when a limit is exceeded.
 

@@ -11,6 +11,9 @@ const seenRecords = new Set();
 const arrivedRecords = new Set();
 // The first payload is the page, not an arrival, so it seeds `seenRecords` and counts nothing.
 let seeded = false;
+// Rule 7ab announces every count change, so the viewer remembers the count the live region last carried.
+// The first paint is not a change, so a fresh page announces nothing.
+let announcedCount = 0;
 const markdownKey = 'pi-share-history-markdown';
 const advancedKey = 'pi-share-history-advanced';
 const toolKinds = new Set(['tool', 'toolResult', 'bashExecution']);
@@ -175,9 +178,12 @@ function renderActivity() {
   const label = `${count} new record${count === 1 ? '' : 's'}`;
   pill.hidden = !id || !count;
   setText(pill, label);
-  // Rule 7ab announces the new count. A count of zero clears the region, because the pill is hidden
-  // then and there is nothing new to announce.
-  setText($('activity-live'), count ? label : '');
+  // Rule 7ab announces every count change, including the drop to zero: the reader still needs to know
+  // that nothing is new. The first paint is not a change, so it announces nothing.
+  if (count !== announcedCount) {
+    setText($('activity-live'), count ? label : 'No new records');
+    announcedCount = count;
+  }
 }
 // Rule 23a restarts the count when the transcript is gone or the stream dropped.
 function resetActivity() {

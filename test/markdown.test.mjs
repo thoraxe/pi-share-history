@@ -803,10 +803,11 @@ test('the pill appears while the reader is away from the bottom and hides at the
     atBottom(window);
     assert.equal(pill(window).hidden, true);                      // Reaching the bottom hides it.
 
-    // A refresh with no new record keeps the zero count, so the pill stays hidden.
+    // A refresh with no new record keeps the zero count, so the pill stays hidden and the region keeps the
+    // zero count it announced.
     await ui.update([...oneRecord(), rec('a2', 'assistant', { text: 'more', timestamp: 1 })]);
     assert.equal(pill(window).hidden, true);
-    assert.equal(announcement(window).textContent, '');
+    assert.equal(announcement(window).textContent, 'No new records');
   } finally { ui.dom.window.close(); }
 });
 
@@ -910,8 +911,7 @@ test('the first payload is the page, not an arrival, when the reader lands away 
     const { window } = ui;
     // A restored scroll position keeps follow-live off, so the page render must count none of its records.
     assert.equal(pill(window).hidden, true);
-    assert.equal(pill(window).textContent, '0 new records');
-    assert.equal(announcement(window).textContent, '');
+    assert.equal(announcement(window).textContent, '');           // The page render announces no count.
 
     await ui.update([...records, rec('a2', 'assistant', { text: 'later', timestamp: 2 })]);
     assert.equal(pill(window).hidden, false);
@@ -1006,7 +1006,14 @@ test('a count change is announced to assistive technology (7ab)', async () => {
     assert.equal(live.textContent, '3 new records');              // The new count is announced again.
 
     atBottom(window);
-    assert.equal(live.textContent, '');                           // The reset leaves no stale count.
+    assert.equal(live.textContent, 'No new records');             // The drop to zero is a change too.
+
+    // Every later count is announced, so the zero transition announces again.
+    awayFromBottom(window);
+    await ui.update([...arrived(), rec('a4', 'assistant', { text: 'four', timestamp: 4 })]);
+    assert.equal(live.textContent, '1 new record');
+    atBottom(window);
+    assert.equal(live.textContent, 'No new records');
   } finally { ui.dom.window.close(); }
 });
 
@@ -1040,7 +1047,7 @@ test('a 404, a `removed` event, or a reconnect hides the pill and resets the cou
     await show(missing);
     await missing.failure(404);
     assert.equal(pill(missing.window).hidden, true);
-    assert.equal(announcement(missing.window).textContent, '');
+    assert.equal(announcement(missing.window).textContent, 'No new records');
   } finally { missing.dom.window.close(); }
 
   // 22, 23a: a `removed` event clears the transcript in the same way.
@@ -1049,7 +1056,7 @@ test('a 404, a `removed` event, or a reconnect hides the pill and resets the cou
     await show(revoked);
     revoked.source.listeners.removed();
     assert.equal(pill(revoked.window).hidden, true);
-    assert.equal(announcement(revoked.window).textContent, '');
+    assert.equal(announcement(revoked.window).textContent, 'No new records');
   } finally { revoked.dom.window.close(); }
 
   // 23, 23a: a reconnect drops the count, and the re-fetched records do not count again.
@@ -1058,10 +1065,12 @@ test('a 404, a `removed` event, or a reconnect hides the pill and resets the cou
     await show(interrupted);
     interrupted.source.onerror();
     assert.equal(pill(interrupted.window).hidden, true);
+    assert.equal(announcement(interrupted.window).textContent, 'No new records');
 
     await interrupted.update(arrived());
-    assert.equal(pill(interrupted.window).textContent, '0 new records');
+    // The re-fetched records are not new, so the count stays at zero and the region keeps that count.
     assert.equal(pill(interrupted.window).hidden, true);
+    assert.equal(announcement(interrupted.window).textContent, 'No new records');
 
     await interrupted.update([...arrived(), rec('a3', 'assistant', { text: 'later', timestamp: 3 })]);
     assert.equal(pill(interrupted.window).textContent, '1 new record');

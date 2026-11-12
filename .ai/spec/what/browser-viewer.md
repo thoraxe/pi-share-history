@@ -11,7 +11,7 @@ The viewer is a static single-page client served by the service. It has two page
 3. A transcript page MUST open an SSE connection. It MUST re-fetch the transcript on each `update` event. It MUST use the browser's built-in reconnection on errors.
 4. Search MUST filter the currently rendered page by case-insensitive substring match over visible text.
 5. Tool and tool-result content MUST be collapsed by default and expandable. Other records MUST be expanded.
-6. Errors MUST be marked distinctly and the error message MUST be shown with the record text.
+6. The viewer MUST mark an error record with a distinct visual style. The viewer MUST show the error message with the record text when the viewer shows the record body.
 7. Follow-live MUST be on by default, MUST scroll to the newest record, and MUST stop when the user scrolls away from the bottom.
 
 ### Read mode
@@ -35,13 +35,13 @@ The viewer is a static single-page client served by the service. It has two page
 7k. Consecutive `tool`, `toolResult`, and `bashExecution` records between two messages MUST render as one disclosure row. [DONE: #3]
 7l. The row summary MUST show a step count and the tool names from `record.label`. Example: `4 steps · read, edit, bash ×2`. [DONE: #3]
 7m. An open row MUST list each step with its tool name and its status. The body of each step MUST stay collapsed until the user opens it. [DONE: #3]
-7n. A failed step MUST show a warning in the row summary while the row is closed. A failed step MUST show a one-line notice in Read mode. [DONE: #3]
+7n. A failed step MUST add a warning to the row summary whenever the viewer shows the row. The viewer shows the row only in Advanced mode. Read mode MUST show a one-line notice that names each failed step. [DONE: #3]
 7o. Grouping MUST keep each row stable across live appends. A live append MUST NOT duplicate a row. A live append MUST NOT reorder a row. [DONE: #3]
 
 ### Metadata
 
 7p. Read mode MUST hide the timestamp, the model, and the status at rest. [DONE: #5]
-7q. Read mode MUST show the metadata on hover and on keyboard focus. Advanced mode MUST always show the metadata. [DONE: #5]
+7q. Read mode MUST hide the metadata at rest without removing it from the page. Read mode MUST reveal the metadata on hover and on keyboard focus. Advanced mode MUST show the metadata at rest. [DONE: #5]
 7r. The viewer MUST NOT change the layout when the metadata appears. The metadata MUST stay in the accessibility tree. [DONE: #5]
 
 ### Markdown
@@ -88,7 +88,4 @@ The viewer is a static single-page client served by the service. It has two page
 
 | Ticket | Summary |
 |---|---|
-| #2 | Read-first default with an Advanced toggle. |
-| #3 | Group tool activity into one step row per turn. |
-| #4 | Role-based rendering for prompts, replies, notices, and summaries. |
-| #5 | Hide metadata in Read mode. |
+| — | No planned changes recorded. |

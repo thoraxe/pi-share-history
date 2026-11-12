@@ -2,6 +2,7 @@
 
 | Term | Meaning |
 |---|---|
+| **At rest** | No hover and no keyboard focus. |
 | **Service** | The self-hosted Node process. It owns SQLite, serves the API, and serves the viewer. Do not call it the server, except in the `server/` code path. |
 | **Extension** | The Pi plugin in `extension/`. It captures records and uploads them. |
 | **Share** | One published Pi session. A `shares` row holds its id, title, owner hash, timestamps, live flag, and revoked flag. |

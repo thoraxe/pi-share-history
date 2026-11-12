@@ -103,4 +103,4 @@ The viewer is a static single-page client served by the service. It has two page
 
 | Ticket | Summary |
 |---|---|
-| #6 | Live updates that do not interrupt the user: compact share state and a new-activity pill. |
+| — | No planned changes recorded. |

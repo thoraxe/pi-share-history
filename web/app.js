@@ -4,9 +4,11 @@ const id = location.pathname.slice(basePath.length).match(/^\/s\/([\w-]{32})$/)?
 const nodes = new Map();
 const groupSteps = new WeakMap();
 let follow = true, busy = false, again = false, stream, draftExpiry, currentUnits = null;
-// Rule 7w counts records, so the viewer remembers every record it has already counted or shown.
+// Rule 7w counts records, so the viewer remembers every record it has already shown, and the ids of the
+// records that arrived since the reader last reached the bottom. The ids, not a number, are kept, so a
+// mode change recomputes the pill count through the visibility rules of the new mode.
 const seenRecords = new Set();
-let pending = 0;
+const arrivedRecords = new Set();
 const markdownKey = 'pi-share-history-markdown';
 const advancedKey = 'pi-share-history-advanced';
 const toolKinds = new Set(['tool', 'toolResult', 'bashExecution']);
@@ -64,6 +66,8 @@ $('advanced-toggle')?.addEventListener('click', () => {
   } catch { /* Keep the page-local choice. */ }
   updateAdvancedButton();
   applyView();
+  // Rule 7w counts through the visibility rules of the current mode, so the count follows the switch.
+  renderActivity();
 });
 function updateMarkdownButton() {
   $('markdown-toggle').textContent = `Markdown: ${markdownEnabled ? 'On' : 'Off'}`;
@@ -146,27 +150,39 @@ function applyView() {
   }
 }
 $('search').addEventListener('input', applyView);
+// Rule 7w counts the arrived records that the current mode shows, through the same visibility rules
+// that decide the records themselves, so a mode switch never desyncs the count from the page.
+function pendingCount() {
+  let count = 0;
+  for (const unit of currentUnits || []) {
+    for (const record of unit.records || [unit.record]) {
+      if (arrivedRecords.has(record.id) && recordShown(unit, record)) count++;
+    }
+  }
+  return count;
+}
 // Rules 7u, 7v, and 7ac: the pill is fixed to the bottom of the viewport, so a show or a hide moves
 // nothing on the page.
 function renderActivity() {
   const pill = $('activity');
   if (!pill) return;
-  const label = `${pending} new record${pending === 1 ? '' : 's'}`;
-  pill.hidden = !id || !pending;
+  const count = pendingCount();
+  const label = `${count} new record${count === 1 ? '' : 's'}`;
+  pill.hidden = !id || !count;
   setText(pill, label);
   // Rule 7ab announces the new count. A count of zero clears the region, because the pill is hidden
   // then and there is nothing new to announce.
-  setText($('activity-live'), pending ? label : '');
+  setText($('activity-live'), count ? label : '');
 }
 // Rule 23a restarts the count when the transcript is gone or the stream dropped.
 function resetActivity() {
-  pending = 0;
+  arrivedRecords.clear();
   renderActivity();
 }
 // Rules 7 and 7y: one activation scrolls to the newest record and resumes follow-live.
 function followLive() {
   follow = true;
-  pending = 0;
+  arrivedRecords.clear();
   $('follow').textContent = 'Following live';
   renderActivity();
   window.scrollTo(0, document.body.scrollHeight);
@@ -178,7 +194,7 @@ window.addEventListener('scroll', () => {
   follow = window.innerHeight + window.scrollY >= document.body.scrollHeight - 100;
   $('follow').textContent = follow ? 'Following live' : 'Follow live';
   // Rule 7u: the bottom is where every record is visible, so the count restarts there.
-  if (follow && pending) resetActivity();
+  if (follow && arrivedRecords.size) resetActivity();
 }, { passive: true });
 function createRecordNode() {
   const node = document.createElement('article');
@@ -307,19 +323,18 @@ function buildUnits(records) {
   }
   return units;
 }
-// Rule 7w counts the records that arrive while the reader is away from the bottom. A record counts
-// once, and only when the current view mode shows it.
+// Rule 7w records which records arrived while the reader is away from the bottom. A record counts once,
+// and the count is derived from the current mode (see `pendingCount`) rather than frozen here.
 function noteArrivals(units) {
-  let arrived = 0;
   for (const unit of units) {
     for (const record of unit.records || [unit.record]) {
       if (seenRecords.has(record.id)) continue;
       seenRecords.add(record.id);
-      if (recordShown(unit, record)) arrived++;
+      if (!follow) arrivedRecords.add(record.id);
     }
   }
   // Rule 7u: a reader at the bottom sees the new records, so only an away reader accrues a count.
-  pending = follow ? 0 : pending + arrived;
+  if (follow) arrivedRecords.clear();
   renderActivity();
 }
 function renderTranscript(data) {

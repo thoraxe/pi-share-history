@@ -834,6 +834,27 @@ test('the count counts the records the current mode shows and ignores the search
   } finally { ui.dom.window.close(); }
 });
 
+test('a mode switch recomputes the count from the records that arrived (7w, 7x)', async () => {
+  const ui = await modeViewer({ records: oneRecord() });
+  try {
+    const { window } = ui;
+    // Read mode shows the reply but hides the four tool steps, so the same arrivals count as one record.
+    awayFromBottom(window);
+    await ui.update([...oneRecord(), ...toolRecords(), rec('a2', 'assistant', { text: 'after', timestamp: 5 })]);
+    assert.equal(pill(window).textContent, '1 new record');
+
+    toggle(window).click();
+    assert.equal(window.document.documentElement.dataset.mode, 'advanced');
+    assert.equal(pill(window).textContent, '5 new records');      // Advanced shows every arrived record.
+    assert.equal(pill(window).hidden, false);
+
+    toggle(window).click();
+    assert.equal(window.document.documentElement.dataset.mode, 'read');
+    assert.equal(pill(window).textContent, '1 new record');       // Back to what Read mode shows.
+    assert.equal(announcement(window).textContent, '1 new record');
+  } finally { ui.dom.window.close(); }
+});
+
 test('the pill appears in Read mode and in Advanced mode (7x)', async () => {
   // Read mode shows prompts and replies, so a tool group that arrives adds nothing to the count.
   const read = await modeViewer({ records: oneRecord() });

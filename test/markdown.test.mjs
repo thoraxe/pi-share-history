@@ -815,24 +815,23 @@ test('showing and hiding the pill never changes the scroll position (7v)', async
   const ui = await modeViewer({ records: oneRecord() });
   try {
     const { window } = ui, document = window.document;
-    // jsdom lays nothing out, so the page height is the number rule 7v holds still.
-    const height = () => document.body.scrollHeight;
     awayFromBottom(window);
-    const before = ui.scrolls, idle = height();
+    const before = ui.scrolls;
     assert.equal(pill(window).hidden, true);
 
     await ui.update([...oneRecord(), rec('a2', 'assistant', { text: 'more', timestamp: 1 })]);
     const node = pill(window);
     assert.equal(node.hidden, false);
+    // jsdom lays nothing out, so the test binds the two facts that keep the page still: the pill is out of
+    // the transcript flow, and the show scrolls nothing. Both fail if the pill enters the flow.
     assert.equal(window.getComputedStyle(node).position, 'fixed');  // It is out of the transcript flow.
     assert.equal(node.closest('#records'), null);                 // It is not a record.
+    assert.equal(node.closest('main'), null);                     // It is not part of the content.
     assert.equal(node.parentElement, document.body);              // It sits outside the scrolling content.
-    assert.equal(height(), idle);                                 // So the page does not grow by its box.
     assert.equal(ui.scrolls, before);                             // The pill appeared without a scroll.
 
     atBottom(window);
     assert.equal(pill(window).hidden, true);
-    assert.equal(height(), idle);                                 // Hiding it gives nothing back either.
     assert.equal(ui.scrolls, before);                             // And it disappeared without a scroll.
   } finally { ui.dom.window.close(); }
 });

@@ -8,6 +8,8 @@
 | **Share** | One published Pi session. A `shares` row holds its id, title, owner hash, timestamps, live flag, and revoked flag. |
 | **Transcript** | The ordered records of a share, as a viewer sees them. |
 | **Record** | One unit of published transcript (message, tool execution, notice, summary). The service stores each record as JSON in `records`. |
+| **Record count** | The number of stored records in a share. The directory shows it for each share. |
+| **Relative time** | A last-updated time shown as a distance from now, for example `2h ago`. |
 | **Upload key** | The team-wide secret (`UPLOAD_KEY` / `PI_SHARE_KEY`). The service requires it to create a share. |
 | **Owner key** | The per-share secret returned at creation and persisted in Pi. It authorizes writes to that share. |
 | **Owner entry** | The Pi custom entry `pi-share-history-owner-v1`. It holds `{id, ownerKey, url, server}`. |

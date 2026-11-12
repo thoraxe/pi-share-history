@@ -22,7 +22,10 @@ The service exposes a small JSON API, an SSE stream, and static browser assets u
 ### Endpoints
 
 10. `GET /health` MUST return `200` and `{"ok":true}`.
-11. `GET /api/shares` MUST return up to 200 non-revoked shares ordered by `updated` descending, each with `id`, `title`, `created`, `updated`, and a boolean `live`.
+11. `GET /api/shares` MUST return up to 200 non-revoked shares, each with `id`, `title`, `created`, `updated`, and a boolean `live`.
+11a. `GET /api/shares` MUST return a `count` field for each share. The `count` field MUST hold the number of stored records for that share. [DONE: #9]
+11b. The service MUST compute `count` in the same query that reads the shares. The service MUST NOT run one query for each share. [DONE: #9]
+11c. `GET /api/shares` MUST list live shares before saved transcripts. Within each group, the service MUST order shares by `updated` descending. [DONE: #9]
 12. `POST /api/shares` MUST accept `{"title": string}` (`title` length <= 200), create a share, and return `201` with `{id, ownerKey, url}` where `url` is `<PUBLIC_URL>/s/<id>`.
 13. `GET /api/shares/<id>` MUST return `{id, title, updated, live, draft, records}`. The `records` field holds full record objects in insertion order. The `draft` field holds the public draft or `null`.
 14. `GET /api/shares/<id>/events` MUST open an SSE stream with an initial `update` event. It MUST send `update` on every change, a keepalive `update` at least every 10 seconds, and `removed` when the share is revoked or deleted.

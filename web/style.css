@@ -88,6 +88,26 @@ article {
 /* A record reserves the same band on top for the metadata chip, so the chip never covers the first line. */
 article.record { padding-top: 2.1rem; }
 article p, #notice, #status, #sync { color: var(--muted); font-size: .85rem; }
+
+/* Directory rows (rules 2a-2c): a record count, a relative time at rest, and the absolute timestamp on
+   hover or keyboard focus. The absolute value sits in the same inline box, so no reveal moves the layout. */
+.share-meta { display: flex; flex-wrap: wrap; gap: .25rem .75rem; align-items: baseline; }
+article .share-state[data-live="true"] { color: var(--link); font-weight: 600; }
+.share-time { display: inline-grid; white-space: nowrap; }
+/* Both spans share one grid cell, so the cell reserves the wider value and the reveal never covers the count. */
+.share-time > * { grid-area: 1 / 1; }
+.share-time .relative { transition: opacity .12s; }
+.share-time .absolute {
+  padding-inline-end: .35rem;
+  background: var(--surface);
+  opacity: 0;
+  pointer-events: none;
+  white-space: nowrap;
+}
+article:hover .share-time .absolute,
+article:focus-within .share-time .absolute { opacity: 1; }
+article:hover .share-time .relative,
+article:focus-within .share-time .relative { opacity: 0; }
 pre { white-space: pre-wrap; overflow-wrap: anywhere; font: .9rem/1.55 ui-monospace, monospace; tab-size: 4; }
 
 /* Record roles: prompts, replies, notices, errors, and summaries look different. */
@@ -115,6 +135,8 @@ article[data-kind="compactionSummary"] {
 }
 article[data-error="true"] { border-color: var(--error); border-inline-start-width: 4px; background: var(--error-surface); }
 article[data-error="true"] .meta { color: var(--error); }
+
+@media (prefers-reduced-motion: reduce) { .share-time .relative { transition: none; } }
 
 /* Metadata stays in the accessibility tree and out of the layout. Read mode reveals it on hover or focus. */
 .meta {

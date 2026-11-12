@@ -48,7 +48,14 @@ test('viewer uses its configured prefix for API, directory links, and live event
   const id = 'a'.repeat(32);
   for (const prefix of ['', '/pi-history']) for (const viewer of [false, true]) {
     const requests = [], events = [], links = [];
-    const makeNode = () => ({ textContent: '', childNodes: [], children: [], dataset: {}, setAttribute() {}, addEventListener() {}, append(...nodes) { this.children.push(...nodes); }, replaceChildren(...nodes) { this.children = nodes; } });
+    const makeNode = () => ({
+      textContent: '', childNodes: [], children: [], dataset: {}, parent: null, setAttribute() {}, addEventListener() {},
+      get firstElementChild() { return this.children[0] ?? null; },
+      get nextElementSibling() { const siblings = this.parent?.children || []; return siblings[siblings.indexOf(this) + 1] ?? null; },
+      append(...nodes) { for (const node of nodes) { this.children.push(node); if (node && typeof node === 'object') node.parent = this; } },
+      replaceChildren(...nodes) { this.children = nodes; for (const node of nodes) node.parent = this; },
+      insertBefore(node, reference) { const index = reference ? this.children.indexOf(reference) : -1; if (index < 0) this.children.push(node); else this.children.splice(index, 0, node); node.parent = this; },
+    });
     const elements = Object.fromEntries(['search', 'follow', 'records', 'status', 'title', 'draft', 'draft-text', 'markdown-toggle'].map(name => [name, makeNode()]));
     elements.search.value = '';
     const context = {

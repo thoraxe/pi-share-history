@@ -808,16 +808,25 @@ test('the pill appears while the reader is away from the bottom and hides at the
 test('showing and hiding the pill never changes the scroll position (7v)', async () => {
   const ui = await modeViewer({ records: oneRecord() });
   try {
-    const { window } = ui;
+    const { window } = ui, document = window.document;
+    // jsdom lays nothing out, so the page height is the number rule 7v holds still.
+    const height = () => document.body.scrollHeight;
     awayFromBottom(window);
-    const before = ui.scrolls;
+    const before = ui.scrolls, idle = height();
+    assert.equal(pill(window).hidden, true);
 
     await ui.update([...oneRecord(), rec('a2', 'assistant', { text: 'more', timestamp: 1 })]);
-    assert.equal(pill(window).hidden, false);
+    const node = pill(window);
+    assert.equal(node.hidden, false);
+    assert.equal(window.getComputedStyle(node).position, 'fixed');  // It is out of the transcript flow.
+    assert.equal(node.closest('#records'), null);                 // It is not a record.
+    assert.equal(node.parentElement, document.body);              // It sits outside the scrolling content.
+    assert.equal(height(), idle);                                 // So the page does not grow by its box.
     assert.equal(ui.scrolls, before);                             // The pill appeared without a scroll.
 
     atBottom(window);
     assert.equal(pill(window).hidden, true);
+    assert.equal(height(), idle);                                 // Hiding it gives nothing back either.
     assert.equal(ui.scrolls, before);                             // And it disappeared without a scroll.
   } finally { ui.dom.window.close(); }
 });

@@ -101,13 +101,12 @@ function renderDraft(draft) {
   setText($('draft-text'), visible ? draft.text : '');
   if (visible) draftExpiry = setTimeout(() => renderDraft(null), draft.expiresIn);
 }
-function unitVisible(unit) {
-  if (advanced) return true;
-  return unit.records ? unit.records.some(isError) : readKinds.has(unit.record.kind) || isError(unit.record);
-}
-// Rule 7w counts records, not turns. Read mode shows a group as its failure notice, so only a failed
-// step counts there, and Advanced mode shows every record.
-const recordShown = (unit, record) => advanced || isError(record) || (!unit.records && readKinds.has(record.kind));
+// One predicate decides both what the page renders and what rule 7w counts, so the pill count and the
+// rendered records cannot drift. Read mode shows a prompt, a reply, a notice, and an error, and it
+// shows a tool group only through its failure notice, so a group is visible through a failed step.
+// Advanced mode shows every record.
+const recordVisible = record => advanced || isError(record) || readKinds.has(record.kind);
+const unitVisible = unit => unit.records ? unit.records.some(recordVisible) : recordVisible(unit.record);
 // Rule 4 filters on visible text, so a hidden element and a closed disclosure contribute nothing.
 // Read mode also keeps the metadata chip out of the match, because it is hidden at rest.
 function visibleText(target) {
@@ -162,7 +161,7 @@ function pendingCount() {
   let count = 0;
   for (const unit of currentUnits || []) {
     for (const record of unit.records || [unit.record]) {
-      if (arrivedRecords.has(record.id) && recordShown(unit, record)) count++;
+      if (arrivedRecords.has(record.id) && recordVisible(record)) count++;
     }
   }
   return count;

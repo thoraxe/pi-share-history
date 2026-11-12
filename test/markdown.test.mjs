@@ -780,6 +780,11 @@ test('the sync time is its own text next to the share state (1c)', async () => {
     assert.equal(sync.textContent, `Synced ${new Date(at).toLocaleString()}`);
     assert.equal(state.nextElementSibling, sync);                 // The sync time sits next to the state.
     assert.doesNotMatch(state.textContent, /Synced|2024/);         // The share state carries no time.
+
+    // 1c: an error message replaces both parts of the header, so no stale sync time stays behind.
+    await ui.failure(500);
+    assert.equal(state.textContent, 'Server returned 500 — reconnecting if available');
+    assert.equal(sync.textContent, '');
   } finally { ui.dom.window.close(); }
 });
 

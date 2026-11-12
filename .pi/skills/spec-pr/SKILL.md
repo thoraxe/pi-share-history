@@ -72,7 +72,7 @@ for(const sent of s.split(/(?<=[.!?])\s+/)){const w=sent.split(/\s+/).filter(Boo
 6. Start the title with `Spec:`.
 7. Put these sections in the PR body: Summary, Issues covered, Behavior changes, Ambiguity choices, Files, Test plan.
 8. Set the test plan to `Spec review only`.
-9. Do not merge. Do not apply `spec:approved`. The reviewer applies it after approval.
+9. Stop. Do not merge. Do not apply `spec:approved`; a human applies it after approval. Do not add `ready-to-merge` and do not enable auto-merge: auto-merge is for implementation PRs only.
 10. Report the PR URL and the rule numbers that you added.
 
 ## Review checklist

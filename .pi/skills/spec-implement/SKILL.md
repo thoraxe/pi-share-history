@@ -12,7 +12,9 @@ Build against the approved spec. The spec is the contract. Do not merge behavior
 Stop and report when either condition is false:
 
 1. The spec PR is merged.
-2. The spec PR has the `spec:approved` label.
+2. A human applied the `spec:approved` label to the spec PR.
+
+An agent MUST NOT apply `spec:approved`. That label is the human approval gate. Do not start implementation before it exists.
 
 Check with:
 
@@ -65,7 +67,7 @@ Run the full suite. Report the count of pass and fail.
 6. Put these sections in the body: Summary, Spec PR, Rules implemented, Tests, Manual checks.
 7. List each rule number next to its code change and its test.
 8. Report the manual checks that need a browser. Unit tests cover rendering logic only.
-9. Add the `ready-to-merge` label and enable auto-merge (squash) when review reports no P0 and no P1 findings. Auto-merge merges the pull request. Do not add the label without that review.
+9. Add the `ready-to-merge` label and enable auto-merge (squash) only after an independent review of this implementation PR reports no P0 and no P1 findings. This gate is for implementation PRs only. Never label or merge a spec PR.
 
 ## Guardrails
 

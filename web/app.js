@@ -127,8 +127,12 @@ function clearTitle() {
   setText($('title'), '');
   document.title = 'Pi team history';
 }
+// Rules 21 and 22: a clear leaves no marker on the page, so a generation number discards a payload that
+// resolves after the clear and would otherwise render the transcript again.
+let generation = 0;
 // A cleared transcript keeps no heading, node, or count from the share that is gone.
 function clearTranscript() {
+  generation++;
   stream?.close();
   $('records').replaceChildren();
   nodes.clear();
@@ -378,6 +382,7 @@ function renderTranscript(data) {
 async function refresh() {
   if (busy) { again = true; return; }
   busy = true;
+  const started = generation;
   try {
     const response = await fetch(basePath + (id ? `/api/shares/${id}` : '/api/shares'), { signal: AbortSignal.timeout(10000) });
     if (!response.ok) {
@@ -388,6 +393,8 @@ async function refresh() {
       throw new Error(`Server returned ${response.status}`);
     }
     const data = await response.json();
+    // A clear during the fetch owns the page now, so this payload is discarded (rules 21 and 22).
+    if (started !== generation) return;
     if (!id) {
       currentUnits = null;
       setStatus('Public session directory');

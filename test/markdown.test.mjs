@@ -148,7 +148,7 @@ const toolRecords = () => [
   rec('b1', 'bashExecution', { timestamp: 4 }),
 ];
 
-async function modeViewer({ records = [], savedAdvanced, blocked = false, markdown = false, draft, live = false, landAway = false } = {}) {
+async function modeViewer({ records = [], savedAdvanced, blocked = false, markdown = false, draft, live = false, landAway = false, defer = false } = {}) {
   const dom = new JSDOM(readWeb('index.html').replaceAll('__BASE_PATH__', '/pi-history'), {
     url: `https://logs.example.com/pi-history/s/${'a'.repeat(32)}`, runScripts: 'outside-only',
   });
@@ -159,7 +159,13 @@ async function modeViewer({ records = [], savedAdvanced, blocked = false, markdo
   if (savedAdvanced) window.localStorage.setItem(advancedKey, savedAdvanced);
   if (blocked) Object.defineProperty(window, 'localStorage', { get() { throw new Error('Storage blocked'); } });
   let payload = { title: 'Viewer test', updated: at, live, records, ...(draft ? { draft } : {}) }, source, fetches = 0, scrolls = 0, failStatus = 0;
-  window.fetch = async () => { fetches++; return failStatus ? { ok: false, status: failStatus } : { ok: true, json: async () => payload }; };
+  // A deferred fetch holds each response until the test releases it, so a payload can resolve after a clear.
+  const waiting = [];
+  window.fetch = async () => {
+    fetches++;
+    if (defer) await new Promise(resolve => waiting.push(resolve));
+    return failStatus ? { ok: false, status: failStatus } : { ok: true, json: async () => payload };
+  };
   window.AbortSignal = AbortSignal;
   window.setInterval = () => 1;
   window.setTimeout = () => 1;
@@ -188,6 +194,11 @@ async function modeViewer({ records = [], savedAdvanced, blocked = false, markdo
     async failure(status) {
       failStatus = status;
       source?.listeners.update();
+      await tick();
+    },
+    // Release every held response, so a refresh that started earlier resolves now.
+    async release() {
+      waiting.splice(0).forEach(resolve => resolve());
       await tick();
     },
   };
@@ -1022,4 +1033,27 @@ test('a 404, a `removed` event, or a reconnect hides the pill and resets the cou
     assert.equal(pill(interrupted.window).textContent, '1 new record');
     assert.equal(pill(interrupted.window).hidden, false);
   } finally { interrupted.dom.window.close(); }
+});
+
+test('a payload that resolves after a clear cannot render the transcript again (21, 22, 23a)', async () => {
+  const arrived = () => [...oneRecord(), rec('a2', 'assistant', { text: 'more', timestamp: 1 }), rec('u1', 'user', { text: 'hi', timestamp: 2 })];
+  const ui = await modeViewer({ records: oneRecord(), defer: true });
+  try {
+    const { window } = ui, document = window.document;
+    await ui.release();                                            // The first payload paints the page.
+    assert.equal(articles(window).length, 1);
+    awayFromBottom(window);
+
+    await ui.update(arrived());                                    // This refresh holds its response in flight.
+    assert.equal(articles(window).length, 1);                      // Nothing rendered yet.
+
+    ui.source.listeners.removed();                                 // 22: the transcript clears mid-flight.
+    assert.equal(articles(window).length, 0);
+    assert.equal(document.getElementById('title').textContent, '');
+
+    await ui.release();                                            // The held payload resolves after the clear.
+    assert.equal(articles(window).length, 0);                      // It is discarded, so the page stays clear.
+    assert.equal(pill(window).hidden, true);
+    assert.equal(announcement(window).textContent, '');
+  } finally { ui.dom.window.close(); }
 });

@@ -148,7 +148,7 @@ const toolRecords = () => [
   rec('b1', 'bashExecution', { timestamp: 4 }),
 ];
 
-async function modeViewer({ records = [], savedAdvanced, blocked = false, markdown = false, draft } = {}) {
+async function modeViewer({ records = [], savedAdvanced, blocked = false, markdown = false, draft, live = false } = {}) {
   const dom = new JSDOM(readWeb('index.html').replaceAll('__BASE_PATH__', '/pi-history'), {
     url: `https://logs.example.com/pi-history/s/${'a'.repeat(32)}`, runScripts: 'outside-only',
   });
@@ -158,7 +158,7 @@ async function modeViewer({ records = [], savedAdvanced, blocked = false, markdo
   if (markdown) for (const name of ['vendor/marked.umd.js', 'vendor/purify.min.js', 'markdown.js']) window.eval(readWeb(name));
   if (savedAdvanced) window.localStorage.setItem(advancedKey, savedAdvanced);
   if (blocked) Object.defineProperty(window, 'localStorage', { get() { throw new Error('Storage blocked'); } });
-  let payload = { title: 'Viewer test', updated: at, records, ...(draft ? { draft } : {}) }, source, fetches = 0, scrolls = 0, failStatus = 0;
+  let payload = { title: 'Viewer test', updated: at, live, records, ...(draft ? { draft } : {}) }, source, fetches = 0, scrolls = 0, failStatus = 0;
   window.fetch = async () => { fetches++; return failStatus ? { ok: false, status: failStatus } : { ok: true, json: async () => payload }; };
   window.AbortSignal = AbortSignal;
   window.setInterval = () => 1;
@@ -723,5 +723,33 @@ test('blocked storage does not break the Advanced control (7a)', async () => {
     assert.equal(ui.window.document.documentElement.dataset.mode, 'advanced');
     toggle(ui.window).click();
     assert.equal(ui.window.document.documentElement.dataset.mode, 'read');
+  } finally { ui.dom.window.close(); }
+});
+
+// Compact share state. The state is a transcript header, so each test reads a rendered share.
+const oneRecord = () => [rec('a1', 'assistant', { text: 'start', timestamp: 0 })];
+
+test('the header shows the share state as a dot and a state word (1b)', async () => {
+  const live = await modeViewer({ live: true, records: oneRecord() });
+  try {
+    assert.equal(live.window.document.getElementById('status').textContent, '● Live');
+  } finally { live.dom.window.close(); }
+
+  // A saved transcript uses the same word as the directory and the glossary term.
+  const saved = await modeViewer({ live: false, records: oneRecord() });
+  try {
+    assert.equal(saved.window.document.getElementById('status').textContent, '● Saved');
+  } finally { saved.dom.window.close(); }
+});
+
+test('the sync time is its own text next to the share state (1c)', async () => {
+  const ui = await modeViewer({ live: true, records: oneRecord() });
+  try {
+    const { window } = ui, document = window.document;
+    const state = document.getElementById('status'), sync = document.getElementById('sync');
+    assert.equal(state.textContent, '● Live');
+    assert.equal(sync.textContent, `Synced ${new Date(at).toLocaleString()}`);
+    assert.equal(state.nextElementSibling, sync);                 // The sync time sits next to the state.
+    assert.doesNotMatch(state.textContent, /Synced|2024/);         // The share state carries no time.
   } finally { ui.dom.window.close(); }
 });

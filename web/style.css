@@ -85,7 +85,7 @@ article {
 }
 /* A record reserves the same band on top for the metadata chip, so the chip never covers the first line. */
 article.record { padding-top: 2.1rem; }
-article p, #notice, #status { color: var(--muted); font-size: .85rem; }
+article p, #notice, #status, #sync { color: var(--muted); font-size: .85rem; }
 pre { white-space: pre-wrap; overflow-wrap: anywhere; font: .9rem/1.55 ui-monospace, monospace; tab-size: 4; }
 
 /* Record roles: prompts, replies, notices, errors, and summaries look different. */

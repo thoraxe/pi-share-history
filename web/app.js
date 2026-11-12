@@ -15,6 +15,11 @@ try { markdownEnabled = localStorage.getItem(markdownKey) !== 'off'; } catch { /
 try { advanced = localStorage.getItem(advancedKey) === 'on'; } catch { /* Keep the page-local default. */ }
 const setText = (element, text) => { if (element && element.textContent !== text) element.textContent = text; };
 const when = value => new Date(value).toLocaleString();
+// Rules 1b and 1c keep the share state and the sync time in their own parts of the header.
+function setStatus(state, sync = '') {
+  setText($('status'), state);
+  setText($('sync'), sync);
+}
 const isError = record => Boolean(record.error);
 // Rule 7m shows the step status. A record without one must not invent it; an error still marks the step.
 const stepStatus = record => record.status ? ` · ${record.status}` : isError(record) ? ' · error' : '';
@@ -264,7 +269,8 @@ function renderTranscript(data) {
   renderDraft(data.draft);
   document.title = `${data.title} — Pi history`;
   setText($('title'), data.title);
-  setText($('status'), `${data.live ? '● Live' : 'Offline — saved transcript'} · Synced ${when(data.updated)}`);
+  // Rules 1b and 1c: the dot and the state word form the share state, and the sync time follows it.
+  setStatus(`● ${data.live ? 'Live' : 'Saved'}`, `Synced ${when(data.updated)}`);
   currentUnits = buildUnits(data.records);
   const keep = new Set(), container = $('records');
   let previous = null;
@@ -304,7 +310,7 @@ async function refresh() {
     const data = await response.json();
     if (!id) {
       currentUnits = null;
-      $('status').textContent = 'Public session directory';
+      setStatus('Public session directory');
       $('records').replaceChildren(...data.map(share => {
         const article = document.createElement('article'), link = document.createElement('a'), meta = document.createElement('p');
         link.href = `${basePath}/s/${share.id}`; link.textContent = share.title;
@@ -319,7 +325,7 @@ async function refresh() {
   } catch (error) {
     renderDraft(null);
     // A closed stream cannot reconnect, so the message must not promise it.
-    $('status').textContent = error.message + (stream && stream.readyState !== 2 ? ' — reconnecting if available' : '');
+    setStatus(error.message + (stream && stream.readyState !== 2 ? ' — reconnecting if available' : ''));
   }
   finally { busy = false; if (again) { again = false; void refresh(); } }
 }
@@ -327,6 +333,6 @@ void refresh();
 if (id) {
   stream = new EventSource(`${basePath}/api/shares/${id}/events`);
   stream.addEventListener('update', () => void refresh());
-  stream.addEventListener('removed', () => { renderDraft(null); stream.close(); $('records').replaceChildren(); nodes.clear(); currentUnits = []; clearTitle(); $('status').textContent = 'This transcript was revoked or deleted.'; });
-  stream.onerror = () => { renderDraft(null); $('status').textContent = 'Connection interrupted — reconnecting…'; };
+  stream.addEventListener('removed', () => { renderDraft(null); stream.close(); $('records').replaceChildren(); nodes.clear(); currentUnits = []; clearTitle(); setStatus('This transcript was revoked or deleted.'); });
+  stream.onerror = () => { renderDraft(null); setStatus('Connection interrupted — reconnecting…'); };
 } else setInterval(refresh, 10000);

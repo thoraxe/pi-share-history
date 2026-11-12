@@ -7,8 +7,8 @@ The viewer is a static single-page client served by the service. It has two page
 ### Rendering
 
 1. `/s/<id>` MUST render the transcript title, the share state, the sync time, and every record in order.
-1b. The header MUST show the share state as a dot and a state word. The state word MUST read `Live` for a live share and `Saved` for a saved transcript. [PLANNED: #6]
-1c. The share state MUST NOT include the sync time. The header MUST show the sync time as its own text next to the share state. [PLANNED: #6]
+1b. The header MUST show the share state as a dot and a state word. The state word MUST read `Live` for a live share and `Saved` for a saved transcript. [DONE: #6]
+1c. The share state MUST NOT include the sync time. The header MUST show the sync time as its own text next to the share state. [DONE: #6]
 2. The directory MUST list non-revoked shares with title, live indicator, and last-updated time, and MUST refresh every 10 seconds.
 3. A transcript page MUST open an SSE connection. It MUST re-fetch the transcript on each `update` event. It MUST use the browser's built-in reconnection on errors.
 4. Search MUST filter the currently rendered page by case-insensitive substring match over visible text.
@@ -48,15 +48,15 @@ The viewer is a static single-page client served by the service. It has two page
 
 ### Live updates
 
-7u. The viewer MUST show a new-activity pill when records that the current view mode shows arrive while the user is away from the bottom. The viewer MUST hide the pill when the count is zero or when the user reaches the bottom. [PLANNED: #6]
-7v. The viewer MUST NOT change the scroll position when the new-activity pill appears or disappears. [PLANNED: #6]
-7w. The new-activity pill MUST show the count of records that the current view mode shows and that arrived since the user last reached the bottom. The count MUST ignore the search filter. [PLANNED: #6]
-7x. The new-activity pill MUST appear in Read mode and in Advanced mode. [PLANNED: #6]
-7y. One activation of the new-activity pill MUST scroll to the bottom and MUST resume follow-live. [PLANNED: #6]
-7z. The viewer MUST NOT animate the new-activity pill when the user requests reduced motion. [PLANNED: #6]
-7aa. The new-activity pill MUST be reachable and operable with the keyboard. [PLANNED: #6]
-7ab. When the count changes, the viewer MUST announce the new count to assistive technology. [PLANNED: #6]
-7ac. The new-activity pill MUST appear at the bottom of the viewport. [PLANNED: #6]
+7u. The viewer MUST show a new-activity pill when records that the current view mode shows arrive while the user is away from the bottom. The viewer MUST hide the pill when the count is zero or when the user reaches the bottom. [DONE: #6]
+7v. The viewer MUST NOT change the scroll position when the new-activity pill appears or disappears. [DONE: #6]
+7w. The new-activity pill MUST show the count of records that the current view mode shows and that arrived since the user last reached the bottom. The count MUST ignore the search filter. [DONE: #6]
+7x. The new-activity pill MUST appear in Read mode and in Advanced mode. [DONE: #6]
+7y. One activation of the new-activity pill MUST scroll to the bottom and MUST resume follow-live. [DONE: #6]
+7z. The viewer MUST NOT animate the new-activity pill when the user requests reduced motion. [DONE: #6]
+7aa. The new-activity pill MUST be reachable and operable with the keyboard. [DONE: #6]
+7ab. When the count changes, the viewer MUST announce the new count to assistive technology. [DONE: #6]
+7ac. The new-activity pill MUST appear at the bottom of the viewport. [DONE: #6]
 
 ### Markdown
 
@@ -82,7 +82,7 @@ The viewer is a static single-page client served by the service. It has two page
 21. A `404` on a transcript MUST clear the page, stop live updates, and explain that the transcript was deleted, revoked, or not found.
 22. A `removed` SSE event MUST clear the transcript and report revocation or deletion.
 23. A connection error MUST clear any draft preview and show a reconnecting status.
-23a. A `404`, a `removed` event, or a reconnect MUST hide the new-activity pill and reset the count. [PLANNED: #6]
+23a. A `404`, a `removed` event, or a reconnect MUST hide the new-activity pill and reset the count. [DONE: #6]
 24. The viewer MUST derive API and asset URLs from the served base path rather than assuming the domain root.
 
 ## Configuration Surface

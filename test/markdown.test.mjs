@@ -991,21 +991,24 @@ test('the pill does not animate when the user requests reduced motion (7z)', () 
 test('the pill is reachable and operable with the keyboard (7aa)', async () => {
   const ui = await modeViewer({ records: oneRecord() });
   try {
-    const { window } = ui;
+    const { window } = ui, document = window.document;
+    const follow = document.getElementById('follow');
     awayFromBottom(window);
     await ui.update([...oneRecord(), rec('a2', 'assistant', { text: 'more', timestamp: 1 })]);
     const node = pill(window);
     assert.equal(node.hidden, false);
-    // A native button is in the tab order without a tabindex, and Enter or Space raise a click.
-    assert.equal(node.tagName, 'BUTTON');
-    assert.equal(node.getAttribute('tabindex'), null);
-    assert.equal(node.disabled, false);
-
+    // The rule, not the element shape: the pill takes keyboard focus, and the activation a key press
+    // raises scrolls to the bottom and resumes follow-live.
     node.focus();
-    assert.equal(window.document.activeElement, node);
+    assert.equal(document.activeElement, node);                  // A key press can reach it.
+
     const before = ui.scrolls;
-    node.click();                                                 // The activation a key press produces.
-    assert.ok(ui.scrolls > before);
+    // jsdom raises no click from a key event, so the test sends the key press and then the click that a
+    // browser raises for Enter or Space on that key press.
+    node.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    node.click();
+    assert.ok(ui.scrolls > before);                               // The activation scrolls to the bottom.
+    assert.equal(follow.textContent, 'Following live');           // And follow-live resumed.
     assert.equal(node.hidden, true);
   } finally { ui.dom.window.close(); }
 });

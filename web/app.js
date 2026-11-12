@@ -132,7 +132,8 @@ function clearTitle() {
 // Rules 21 and 22: a clear leaves no marker on the page, so a generation number discards a payload that
 // resolves after the clear and would otherwise render the transcript again.
 let generation = 0;
-// A cleared transcript keeps no heading, node, or count from the share that is gone.
+// A cleared transcript keeps no heading, node, or count from the share that is gone. It also forgets
+// that it was seeded, so the next payload is the page of a new share, not an arrival in the old one.
 function clearTranscript() {
   generation++;
   stream?.close();
@@ -140,6 +141,7 @@ function clearTranscript() {
   nodes.clear();
   currentUnits = [];
   seenRecords.clear();
+  seeded = false;
   clearTitle();
   resetActivity();
 }

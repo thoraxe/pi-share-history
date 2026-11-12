@@ -919,6 +919,30 @@ test('the first payload is the page, not an arrival, when the reader lands away 
   } finally { ui.dom.window.close(); }
 });
 
+test('a cleared transcript seeds the next payload again (7w, 21, 22)', async () => {
+  const records = () => [rec('a1', 'assistant', { text: 'start', timestamp: 0 }), rec('a2', 'assistant', { text: 'more', timestamp: 1 })];
+  const ui = await modeViewer({ records: oneRecord() });
+  try {
+    const { window } = ui;
+    awayFromBottom(window);
+    await ui.update(records());
+    assert.equal(pill(window).textContent, '1 new record');       // An arrival after the first paint counts.
+
+    ui.source.listeners.removed();                                // 22: the transcript clears while the reader is away.
+    assert.equal(pill(window).hidden, true);
+
+    // The next payload paints a new share, so its records are the page and none of them is an arrival.
+    await ui.update(records());
+    assert.equal(pill(window).hidden, true);
+    assert.equal(announcement(window).textContent, 'No new records');
+
+    // The seed covers one payload only, so a record that arrives after it still counts.
+    await ui.update([...records(), rec('a3', 'assistant', { text: 'later', timestamp: 2 })]);
+    assert.equal(pill(window).hidden, false);
+    assert.equal(pill(window).textContent, '1 new record');
+  } finally { ui.dom.window.close(); }
+});
+
 test('the pill appears in Read mode and in Advanced mode (7x)', async () => {
   // Read mode shows prompts and replies, so a tool group that arrives adds nothing to the count.
   const read = await modeViewer({ records: oneRecord() });

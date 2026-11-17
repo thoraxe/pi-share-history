@@ -22,8 +22,10 @@ A record is one published unit of transcript: a message, a tool execution, a not
 
 9. The extension MUST only emit records for these roles: `user`, `assistant`, `toolResult`, `bashExecution`, `custom`, `branchSummary`, and `compactionSummary`. It MUST drop `system` messages.
 10. System prompts, model thinking blocks, image data, provider signatures, raw provider events, and arbitrary tool-result metadata MUST NOT be uploaded.
+10a. The extension MUST NOT place a tool call's name or arguments in an `assistant` record's `text`. Each tool call MUST publish as its own `tool` record. [DONE: #23]
 11. Image content blocks MUST become `[image omitted]`. Thinking blocks MUST become `[thinking omitted]`. Other unknown block types MUST become `[<type> block omitted]`.
 12. `bashExecution` records MUST contain the command prefixed with `$ ` and the command output.
+12a. A `tool` record's `text` MUST contain the tool arguments and then the tool result. [DONE: #23]
 
 ### Upload batching
 

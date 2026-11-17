@@ -120,7 +120,10 @@ function renderDraft(draft) {
 // rendered records cannot drift. Read mode shows a prompt, a reply, a notice, and an error, and it
 // shows a tool group only through its failure notice, so a group is visible through a failed step.
 // Advanced mode shows every record.
-const recordVisible = record => advanced || isError(record) || readKinds.has(record.kind);
+const hasText = record => typeof record.text === 'string' && record.text.trim() !== '';
+// Rule 7b1 keeps an empty record out of Read mode, so a turn that only called a tool leaves no
+// blank card. Advanced mode still shows every record.
+const recordVisible = record => advanced || isError(record) || (readKinds.has(record.kind) && hasText(record));
 const unitVisible = unit => unit.records ? unit.records.some(recordVisible) : recordVisible(unit.record);
 // Rule 4 filters on visible text, so a hidden element and a closed disclosure contribute nothing.
 // Read mode also keeps the metadata chip out of the match, because it is hidden at rest.

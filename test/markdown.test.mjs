@@ -293,6 +293,25 @@ test('Read mode is the default and hides tool activity, summaries, and metadata 
   } finally { ui.dom.window.close(); }
 });
 
+test('Read mode hides an empty record and Advanced mode shows it, and errors stay visible (7b1, 7d)', async () => {
+  const ui = await modeViewer({ records: [
+    rec('u1', 'user', { text: 'a question', timestamp: 0 }),
+    rec('a1', 'assistant', { text: '', timestamp: 1 }),
+    rec('a2', 'assistant', { text: 'an answer', timestamp: 2 }),
+    rec('e1', 'assistant', { text: '', error: true, errorMessage: 'provider failed', timestamp: 3 }),
+    rec('n1', 'notice', { label: 'branch', text: '   ', timestamp: 4 }),
+  ] });
+  try {
+    const { window } = ui, nodes = articles(window);
+    assert.equal(nodes.length, 5);
+    // The empty assistant body and the whitespace-only notice leave no blank card in Read mode.
+    assert.deepEqual(nodes.map(node => node.hidden), [false, true, false, false, true]);
+    assert.deepEqual(nodes.filter(node => !node.hidden).map(node => node.dataset.kind), ['user', 'assistant', 'assistant']);
+    toggle(window).click();
+    for (const node of nodes) assert.equal(node.hidden, false);   // 7c: Advanced mode shows every record.
+  } finally { ui.dom.window.close(); }
+});
+
 test('follow-live scrolls to the newest record, stops after a scroll away, and resumes on the button (7)', async () => {
   const ui = await modeViewer({ records: [rec('a1', 'assistant', { text: 'start', timestamp: 0 })] });
   try {

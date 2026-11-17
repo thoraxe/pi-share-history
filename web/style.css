@@ -62,6 +62,9 @@ body { margin: 0; }
 header {
   position: sticky;
   top: 0;
+  /* Records are positioned for the metadata chip, so they paint above earlier positioned elements.
+     The header needs a stacking level of its own to stay above a record that scrolls under it. */
+  z-index: 2;
   display: flex;
   gap: 1rem;
   align-items: center;

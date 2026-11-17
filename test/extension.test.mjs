@@ -129,6 +129,59 @@ test('tool arguments survive a tool_execution_end event without args (12a)', asy
   });
 });
 
+test('a history tool call with no result publishes as running with its arguments (6, 12a)', async () => {
+  const branch = [
+    { type: 'message', message: { role: 'assistant', timestamp: 200, content: [
+      { type: 'text', text: 'Working.' },
+      { type: 'toolCall', id: 'h2', name: 'bash', arguments: { command: 'pwd' } },
+    ] } },
+  ];
+  await withExtensionSession(branch, async ({ base, ctx, command, share }) => {
+    await command('upload', ctx);
+    const data = await fetch(`${base}/api/shares/${share().id}`).then(response => response.json());
+    const tool = data.records.find(record => record.kind === 'tool');
+    assert.equal(tool.id, 'tool:h2');
+    assert.equal(tool.status, 'running');
+    assert.equal(tool.error, false);
+    assert.equal(tool.text, '{\n  "command": "pwd"\n}');
+  });
+});
+
+test('a failed history tool result publishes an error step with the arguments (6, 12a)', async () => {
+  const branch = [
+    { type: 'message', message: { role: 'assistant', timestamp: 200, content: [
+      { type: 'toolCall', id: 'h3', name: 'bash', arguments: { command: 'rm -rf build' } },
+    ] } },
+    { type: 'message', message: { role: 'toolResult', toolCallId: 'h3', toolName: 'bash', isError: true, timestamp: 300, content: [{ type: 'text', text: 'permission denied' }] } },
+  ];
+  await withExtensionSession(branch, async ({ base, ctx, command, share }) => {
+    await command('upload', ctx);
+    const data = await fetch(`${base}/api/shares/${share().id}`).then(response => response.json());
+    const tool = data.records.find(record => record.kind === 'tool');
+    assert.equal(tool.status, 'error');
+    assert.equal(tool.error, true);
+    assert.equal(tool.text, '{\n  "command": "rm -rf build"\n}\n\npermission denied');
+  });
+});
+
+test('a branch-captured in-flight call keeps its arguments when the end event has none (12a)', async () => {
+  const branch = [
+    { type: 'message', message: { role: 'assistant', timestamp: 200, content: [
+      { type: 'toolCall', id: 'h4', name: 'bash', arguments: { command: 'ls' } },
+    ] } },
+  ];
+  await withExtensionSession(branch, async ({ base, ctx, hooks, command, share }) => {
+    // `start` captures the branch first, so only the capture can supply the arguments to the end event.
+    await command('start', ctx);
+    await hooks.get('tool_execution_end')({ type: 'tool_execution_end', toolCallId: 'h4', toolName: 'bash', result: { content: [{ type: 'text', text: 'a.txt' }] } }, ctx);
+    await command('stop', ctx);
+    const data = await fetch(`${base}/api/shares/${share().id}`).then(response => response.json());
+    const tool = data.records.find(record => record.id === 'tool:h4');
+    assert.equal(tool.status, 'done');
+    assert.equal(tool.text, '{\n  "command": "ls"\n}\n\na.txt');
+  });
+});
+
 test('assistant text keeps prose and omission placeholders but drops tool call blocks (10a)', () => {
   const record = messageRecord({ role: 'assistant', timestamp: 210, content: [
     { type: 'text', text: 'I will open the file.' },

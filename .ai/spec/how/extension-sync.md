@@ -17,7 +17,7 @@
 
 ## Data Flow
 
-1. `session_start` resets `share`, `pending`, `live`, and draft state, then scans branch entries for the owner custom entry.
+1. `session_start` resets `share`, `pending`, `toolArgs`, `live`, and draft state, then scans branch entries for the owner custom entry.
 2. A command handler validates the action, confirms with the user, creates the share if needed, sets `live`, calls `capture()`, and awaits `flush()`.
 3. Live Pi events (`message_*`, `tool_execution_*`, `session_tree`, `agent_settled`) call `put()` while `live` is true. The `session_tree` and `agent_settled` events also run a full branch capture, which emits tool records for the tool calls in the branch history.
 4. `flush()` pulls records from `pending` until the byte/record-count budget is reached, attaches the current `pendingDraft`, and posts the batch.
@@ -29,6 +29,7 @@
 ## Key Abstractions
 
 - **Pending is a Map keyed by record id.** `message_update` and `message_end` for the same record overwrite each other. Only the newest body is sent.
+- **Retained tool arguments are a Map keyed by tool call id.** `tool_execution_end` carries no `args`, so the end upsert reuses the ones from `start` or `update`. A branch capture seeds the map for a call that has no result yet and publishes that call as `running`.
 - **Batching is bounded by serialized size.** Accumulate up to 800,000 bytes or 100 records per request. This stays under the service's 1 MiB cap.
 - **Draft updates can ride with records.** A non-empty batch carries the draft in the same `/records` call. With no batch, the extension posts the draft to `/draft` while live.
 - **Submissions are ordered.** `submittedText` suppresses re-publishing a buffer that has been sent but not cleared. It resets once the editor text changes.

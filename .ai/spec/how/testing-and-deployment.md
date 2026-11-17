@@ -7,10 +7,10 @@ Tests run on `node:test` with no test framework dependency. The service tests im
 | File | Key Symbols | Responsibility |
 |---|---|---|
 | `test/service.test.mjs` | temp-dir `createService`, `fetch` helper | Auth, multi-publisher isolation, SSE, restart persistence, revoke/delete, quota rollback, config validation, record allowlist. |
-| `test/extension.test.mjs` | fake `pi` and `ctx` objects | Full lifecycle against a real service at `/` and `/pi-history`, plus `/share` version detection. |
+| `test/extension.test.mjs` | fake `pi` and `ctx` objects | Full lifecycle against a real service at `/` and `/pi-history`, record mapping for messages and tools including history capture, and `/share` version detection. |
 | `test/drafts.test.mjs` | `fixture`, `until`, jsdom viewer | Owner-only/ephemeral drafts, revision ordering, submission without duplicates, expiry, disconnect cleanup. |
 | `test/subpath.test.mjs` | prefix fixtures | Prefixed API/assets/SSE, canonical redirect, legacy link handling, client URL construction. |
-| `test/markdown.test.mjs` | `browser()`, `modeViewer()`, `placeReader()`, jsdom | Rendering, sanitization, raw HTML/image blocking, toggle persistence, fail-closed behavior, Read/Advanced modes, record roles, tool groups, metadata visibility, compact share state, new-activity pill. |
+| `test/markdown.test.mjs` | `browser()`, `modeViewer()`, `placeReader()`, jsdom | Rendering, sanitization, raw HTML/image blocking, toggle persistence, fail-closed behavior, Read/Advanced modes, empty-record hiding, record roles, tool groups, metadata visibility, compact share state, new-activity pill. |
 | `test/theme.test.mjs` | jsdom with mocked `matchMedia` | Pre-paint theme, cycle order, storage sync, blocked storage. |
 | `Dockerfile` | node:22-bookworm-slim stages | Copies only `package.json`, `server/`, and `web/`. Creates `/data`. Runs as `node`. No npm install. |
 | `compose.yaml` | `history` service, `history-data` volume | Requires `UPLOAD_KEY`/`PUBLIC_URL`, binds `127.0.0.1:9080`, caps memory at 512 MB, rotates logs. |

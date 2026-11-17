@@ -24,7 +24,7 @@ The viewer is a static single-page client served by the service. It has two page
 
 7a. The viewer MUST keep Advanced mode off on the first visit. The viewer MUST remember the choice in that browser. [DONE: #2]
 7b. Read mode MUST show `user` prompts, `assistant` replies, errors, and `notice` records. Read mode MUST hide every other record. [DONE: #2]
-7b1. Read mode MUST hide a record that has an empty `text` and no `error`. Advanced mode MUST show every record. [PLANNED: #23]
+7b1. Read mode MUST hide a record that has an empty `text` and no `error`. Advanced mode MUST show every record. [DONE: #23]
 7c. Advanced mode MUST show every record in the transcript. This set includes `tool` records, `toolResult` records, `bashExecution` records, summaries, and metadata. [DONE: #2]
 7d. The viewer MUST show an error record in Read mode and in Advanced mode. A mode change MUST NOT hide an error record. [DONE: #2]
 7e. A mode change MUST NOT fetch data again. It MUST NOT remove a record from the DOM. It MUST keep the scroll position. [DONE: #2]
@@ -108,4 +108,4 @@ The viewer is a static single-page client served by the service. It has two page
 
 | Ticket | Summary |
 |---|---|
-| #23 | Read mode hides a record with an empty `text` and no `error`. |
+| — | No planned changes recorded. |

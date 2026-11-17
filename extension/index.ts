@@ -111,13 +111,16 @@ export default async function (pi: ExtensionAPI) {
         for (const block of message.content) {
           if (block.type !== 'toolCall') continue;
           const result = results.get(block.id);
+          // A call with no result yet stays running, and its arguments seed the map so the
+          // later end event upserts the same body instead of dropping them.
+          if (!result) toolArgs.set(block.id, block.arguments);
           put(toolRecord({
-            type: 'tool_execution_end', toolCallId: block.id, toolName: block.name, args: block.arguments,
+            type: result ? 'tool_execution_end' : 'tool_execution_start',
+            toolCallId: block.id, toolName: block.name, args: block.arguments,
             result: result ? { content: result.content } : undefined, isError: Boolean(result?.isError),
           }));
         }
-      }
-      else if (entry.type === 'compaction' || entry.type === 'branch_summary') {
+      } else if (entry.type === 'compaction' || entry.type === 'branch_summary') {
         put({ id: `entry:${entry.id}`, kind: entry.type, timestamp: Date.parse(entry.timestamp), text: entry.summary.slice(0, 24000), label: entry.type });
       }
     }

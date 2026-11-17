@@ -49,4 +49,4 @@ A record is one published unit of transcript: a message, a tool execution, a not
 
 | Ticket | Summary |
 |---|---|
-| #23 | Assistant text omits tool calls. A `tool` record keeps the tool arguments and the tool result. |
+| — | No planned changes recorded. |

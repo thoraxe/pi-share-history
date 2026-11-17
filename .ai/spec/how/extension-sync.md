@@ -10,7 +10,7 @@
 | default factory | Wires events, commands, timers, and the draft poller. |
 | `server()` | Validates `PI_SHARE_URL` and returns the normalized base URL. |
 | `request()` | JSON `fetch` with Bearer auth, redirect rejection, and a 5 s timeout. |
-| `capture()` | Walks `sessionManager.getBranch()` and queues message/summary records. |
+| `capture()` | Walks `sessionManager.getBranch()` and queues message/summary records, plus a `tool` record synthesized from each assistant `toolCall` block and its `toolResult`. |
 | `flush()` | Uploads queued records/drafts in bounded batches, serialized by `sending`. |
 | `put`, `status`, `startTimer`, `stop` | Queue insertion, status bar, 1.5 s flush timer, live stop. |
 | `setDraft`, `pollDraft`, `disableDrafts`, `clearSubmittedDraft` | Draft lifecycle driven from the editor. |
@@ -19,7 +19,7 @@
 
 1. `session_start` resets `share`, `pending`, `live`, and draft state, then scans branch entries for the owner custom entry.
 2. A command handler validates the action, confirms with the user, creates the share if needed, sets `live`, calls `capture()`, and awaits `flush()`.
-3. Live Pi events (`message_*`, `tool_execution_*`, `session_tree`, `agent_settled`) call `put()` while `live` is true. The `session_tree` and `agent_settled` events also run a full branch capture.
+3. Live Pi events (`message_*`, `tool_execution_*`, `session_tree`, `agent_settled`) call `put()` while `live` is true. The `session_tree` and `agent_settled` events also run a full branch capture, which emits tool records for the tool calls in the branch history.
 4. `flush()` pulls records from `pending` until the byte/record-count budget is reached, attaches the current `pendingDraft`, and posts the batch.
 5. On success it deletes only the records it sent (comparing object identity) and clears the draft if it is unchanged.
 6. The 1.5 s interval re-enters `flush()`. The `sending` promise makes concurrent calls join the in-flight request.
@@ -49,4 +49,4 @@
 - The dynamic import of the Pi package for `VERSION` is wrapped in `try/catch`. A failure means "assume no built-in", preserving `/share`.
 - Draft revisions are `Math.max(revision + 1, Date.now())`. A restarted process cannot reuse a revision that the service has already seen.
 - `disableDrafts()` forces one empty draft when it had been on or had text. The viewer then clears even if no further uploads occur.
-- Record capture uses `entry.type === 'message'` plus compaction/branch-summary entries. Tool events are captured separately, not from branch history.
+- Record capture uses `entry.type === 'message'` plus compaction/branch-summary entries. Live execution captures tool events directly. A branch capture instead rebuilds each tool record from an assistant `toolCall` block and the `toolResult` message with the same `toolCallId`, under the same `tool:<toolCallId>` id, so history and live upserts converge.

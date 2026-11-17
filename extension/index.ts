@@ -31,6 +31,9 @@ export default async function (pi: ExtensionAPI) {
   let live = false;
   let timer: ReturnType<typeof setInterval> | undefined;
   let pending = new Map<string, any>();
+  // Pi's tool_execution_end event carries no args, so keep the arguments from
+  // start/update and merge them back for the final upsert.
+  let toolArgs = new Map<string, any>();
   let sending: Promise<void> | undefined;
   let lastError = '';
   let draftsEnabled = false;
@@ -92,8 +95,28 @@ export default async function (pi: ExtensionAPI) {
   }
   function put(record: any) { if (record) { pending.set(record.id, record); status(); } }
   function capture(context: ExtensionContext) {
-    for (const entry of context.sessionManager.getBranch()) {
-      if (entry.type === 'message') put(messageRecord(entry.message));
+    const branch = context.sessionManager.getBranch();
+    // Tool calls live in assistant blocks, and the result lives in a later
+    // toolResult message, so pair them first. Ids then match the live tool
+    // events, and a history upload and a live session upsert the same record.
+    const results = new Map<string, any>();
+    for (const entry of branch) {
+      if (entry.type === 'message' && entry.message?.role === 'toolResult') results.set(entry.message.toolCallId, entry.message);
+    }
+    for (const entry of branch) {
+      if (entry.type === 'message') {
+        const message = entry.message;
+        put(messageRecord(message));
+        if (message?.role !== 'assistant' || !Array.isArray(message.content)) continue;
+        for (const block of message.content) {
+          if (block.type !== 'toolCall') continue;
+          const result = results.get(block.id);
+          put(toolRecord({
+            type: 'tool_execution_end', toolCallId: block.id, toolName: block.name, args: block.arguments,
+            result: result ? { content: result.content } : undefined, isError: Boolean(result?.isError),
+          }));
+        }
+      }
       else if (entry.type === 'compaction' || entry.type === 'branch_summary') {
         put({ id: `entry:${entry.id}`, kind: entry.type, timestamp: Date.parse(entry.timestamp), text: entry.summary.slice(0, 24000), label: entry.type });
       }
@@ -143,7 +166,7 @@ export default async function (pi: ExtensionAPI) {
   }
   pi.on('session_start', (_event, context) => {
     disableDrafts(); pendingDraft = undefined; draftText = '';
-    ctx = context; share = undefined; pending = new Map(); live = false;
+    ctx = context; share = undefined; pending = new Map(); toolArgs = new Map(); live = false;
     for (const entry of context.sessionManager.getBranch()) {
       if (entry.type === 'custom' && entry.customType === STATE) share = entry.data as Share | undefined;
     }
@@ -169,9 +192,20 @@ export default async function (pi: ExtensionAPI) {
   });
   pi.on('message_update', (event) => { if (live) put(messageRecord(event.message)); });
   pi.on('message_end', (event) => { if (live) put(messageRecord(event.message)); });
-  for (const name of ['tool_execution_start', 'tool_execution_update', 'tool_execution_end'] as const) {
-    pi.on(name, event => { if (live) put(toolRecord(event)); });
+  for (const name of ['tool_execution_start', 'tool_execution_update'] as const) {
+    pi.on(name, event => {
+      if (!live) return;
+      if (event.args !== undefined) toolArgs.set(event.toolCallId, event.args);
+      put(toolRecord(event));
+    });
   }
+  pi.on('tool_execution_end', event => {
+    if (!live) return;
+    // ToolExecutionEndEvent has no `args` field; reuse the ones from start/update.
+    const args = (event as { args?: any }).args ?? toolArgs.get(event.toolCallId);
+    toolArgs.delete(event.toolCallId);
+    put(toolRecord({ ...event, args }));
+  });
   pi.on('session_tree', (_event, context) => {
     if (live) {
       put({ id: `branch:${Date.now()}`, kind: 'notice', timestamp: Date.now(), text: 'Publisher navigated to another branch. Previously shared history remains visible.', label: 'Branch change' });

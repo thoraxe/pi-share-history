@@ -9,6 +9,37 @@ import { createService } from '../server/index.mjs';
 
 const suffix = '\n[truncated by pi-share-history]';
 
+// Runs the extension against a real service over a fixed branch and hands the
+// live hooks to the test body.
+async function withExtensionSession(branch, run) {
+  const dir = mkdtempSync(join(tmpdir(), 'pi-ext-'));
+  const key = 'extension-test-team-key-at-least-24-characters';
+  const service = createService({ dataDir: dir, uploadKey: key, publicUrl: 'http://localhost:9080' });
+  await new Promise(resolve => service.server.listen(0, '127.0.0.1', resolve));
+  const base = `http://127.0.0.1:${service.server.address().port}`;
+  const previous = { url: process.env.PI_SHARE_URL, key: process.env.PI_SHARE_KEY };
+  process.env.PI_SHARE_URL = base; process.env.PI_SHARE_KEY = key;
+  const entries = [...branch];
+  const hooks = new Map();
+  let command;
+  const pi = {
+    on: (name, handler) => hooks.set(name, handler),
+    registerCommand: (_name, options) => { command = options.handler; },
+    appendEntry: (customType, data) => entries.push({ type: 'custom', customType, data }),
+  };
+  const ctx = { cwd: '/tmp/project', sessionManager: { getBranch: () => entries }, ui: { setStatus() {}, confirm: async () => true, notify() {} } };
+  try {
+    await extension(pi);
+    await hooks.get('session_start')({}, ctx);
+    await run({ base, ctx, hooks, command: (action, context) => command(action, context), share: () => entries.find(entry => entry.type === 'custom')?.data });
+  } finally {
+    await hooks.get('session_shutdown')?.({}, ctx);
+    if (previous.url === undefined) delete process.env.PI_SHARE_URL; else process.env.PI_SHARE_URL = previous.url;
+    if (previous.key === undefined) delete process.env.PI_SHARE_KEY; else process.env.PI_SHARE_KEY = previous.key;
+    await service.close(); rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 for (const prefix of ['', '/pi-history']) test(`extension lifecycle at ${prefix || '/'}; resumed session stays offline`, async () => {
   const dir = mkdtempSync(join(tmpdir(), 'pi-ext-'));
   const key = 'extension-test-team-key-at-least-24-characters';
@@ -63,6 +94,41 @@ for (const prefix of ['', '/pi-history']) test(`extension lifecycle at ${prefix 
   }
 });
 
+test('a history upload publishes one tool record per assistant tool call (10a, 12a)', async () => {
+  const branch = [
+    { type: 'message', message: { role: 'user', timestamp: 100, content: 'List the directory' } },
+    { type: 'message', message: { role: 'assistant', timestamp: 200, content: [
+      { type: 'text', text: 'I will list it.' },
+      { type: 'toolCall', id: 'h1', name: 'bash', arguments: { command: 'ls' } },
+    ] } },
+    { type: 'message', message: { role: 'toolResult', toolCallId: 'h1', toolName: 'bash', timestamp: 300, content: [{ type: 'text', text: 'a.txt' }] } },
+  ];
+  await withExtensionSession(branch, async ({ base, ctx, command, share }) => {
+    await command('upload', ctx);
+    const data = await fetch(`${base}/api/shares/${share().id}`).then(response => response.json());
+    // Same order as live capture: the assistant message, then its tool, then the result.
+    assert.deepEqual(data.records.map(record => record.kind), ['user', 'assistant', 'tool', 'toolResult']);
+    assert.equal(data.records[1].text, 'I will list it.');
+    assert.equal(data.records[2].id, 'tool:h1');
+    assert.equal(data.records[2].text, '{\n  "command": "ls"\n}\n\na.txt');
+  });
+});
+
+test('tool arguments survive a tool_execution_end event without args (12a)', async () => {
+  await withExtensionSession([], async ({ base, ctx, hooks, command, share }) => {
+    await command('start', ctx);
+    await hooks.get('tool_execution_start')({ type: 'tool_execution_start', toolCallId: 'e1', toolName: 'bash', args: { command: 'ls' } }, ctx);
+    // Pi 1.5 `ToolExecutionEndEvent` has no `args` field.
+    await hooks.get('tool_execution_end')({ type: 'tool_execution_end', toolCallId: 'e1', toolName: 'bash', result: { content: [{ type: 'text', text: 'a.txt' }] } }, ctx);
+    await command('stop', ctx);
+    const data = await fetch(`${base}/api/shares/${share().id}`).then(response => response.json());
+    assert.equal(data.records.length, 1);
+    assert.equal(data.records[0].id, 'tool:e1');
+    assert.equal(data.records[0].status, 'done');
+    assert.equal(data.records[0].text, '{\n  "command": "ls"\n}\n\na.txt');
+  });
+});
+
 test('assistant text keeps prose and omission placeholders but drops tool call blocks (10a)', () => {
   const record = messageRecord({ role: 'assistant', timestamp: 210, content: [
     { type: 'text', text: 'I will open the file.' },
@@ -73,7 +139,8 @@ test('assistant text keeps prose and omission placeholders but drops tool call b
   ] });
   assert.equal(record.text, 'I will open the file.\n\n[thinking omitted]\n\n[image omitted]\n\n[widget block omitted]');
   assert.equal(JSON.stringify(record).includes('/tmp/listed-path'), false);
-  assert.equal(record.text.includes('read'), false);
+  assert.equal(record.text.includes('Tool:'), false);
+  assert.equal(record.text.includes('toolCall'), false);
   assert.equal(record.text.includes('private reasoning'), false);
   assert.equal(record.text.includes('image-bytes'), false);
 });

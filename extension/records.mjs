@@ -7,16 +7,21 @@ function text(value, limit = 24000) {
 function printable(value) {
   try { return text(JSON.stringify(value, null, 2)); } catch { return '[unserializable]'; }
 }
+// Blank-line separated, empty parts dropped, capped once at the end.
+function joined(parts) {
+  return text(parts.filter(part => part !== '').join('\n\n'));
+}
 export function content(value) {
   if (typeof value === 'string') return text(value);
   if (!Array.isArray(value)) return '';
-  return text(value.map(block => {
-    if (block.type === 'text') return block.text;
-    if (block.type === 'toolCall') return `Tool: ${block.name}\n${printable(block.arguments)}`;
-    if (block.type === 'image') return '[image omitted]';
-    if (block.type === 'thinking') return '[thinking omitted]';
-    return `[${block.type || 'unknown'} block omitted]`;
-  }).join('\n\n'));
+  return joined(value.flatMap(block => {
+    // A tool call publishes as its own `tool` record, so it adds no message text.
+    if (block.type === 'toolCall') return [];
+    if (block.type === 'text') return [String(block.text ?? '')];
+    if (block.type === 'image') return ['[image omitted]'];
+    if (block.type === 'thinking') return ['[thinking omitted]'];
+    return [`[${block.type || 'unknown'} block omitted]`];
+  }));
 }
 export function messageRecord(message) {
   if (!message || message.role === 'system') return null;
@@ -35,7 +40,8 @@ export function toolRecord(event) {
   return {
     id: `tool:${event.toolCallId}`, kind: 'tool', timestamp: Date.now(), label: event.toolName,
     status: event.type === 'tool_execution_end' ? (event.isError ? 'error' : 'done') : 'running',
-    text: content(event.result?.content ?? event.partialResult?.content) || (event.args ? printable(event.args) : ''),
+    // Arguments first, then the result, so the final upsert keeps both.
+    text: joined([event.args ? printable(event.args) : '', content(event.result?.content ?? event.partialResult?.content)]),
     error: Boolean(event.isError), parent: event.parentToolCallId,
   };
 }

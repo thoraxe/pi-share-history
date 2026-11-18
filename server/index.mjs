@@ -12,6 +12,8 @@ const failure = (status, message) => Object.assign(new Error(message), { status 
 
 export function createService({ dataDir = './data', uploadKey, publicUrl = 'http://localhost:9080', maxShares = 1000, maxRecords = 10000, maxShareBytes = 20 * 1024 * 1024, draftTtlMs = 8000 } = {}) {
   if (!uploadKey || uploadKey.length < 24) throw new Error('UPLOAD_KEY must contain at least 24 characters');
+  // One staleness window decides the reported live state, the directory order, and the draft guard.
+  const liveWindowMs = 20000;
   const publicAddress = new URL(publicUrl);
   if (!['http:', 'https:'].includes(publicAddress.protocol) || publicAddress.search || publicAddress.hash || publicAddress.username || publicAddress.password) throw new Error('PUBLIC_URL must be an HTTP(S) URL without credentials, query or fragment');
   const basePath = publicAddress.pathname.replace(/\/+$/, '');
@@ -75,7 +77,12 @@ export function createService({ dataDir = './data', uploadKey, publicUrl = 'http
       const token = (req.headers.authorization || '').replace(/^Bearer /, '');
       if (req.method === 'GET' && path === '/health') return json(res, 200, { ok: true });
       if (req.method === 'GET' && path === '/api/shares') {
-        return json(res, 200, db.prepare('SELECT id,title,created,updated,live FROM shares WHERE revoked=0 ORDER BY updated DESC LIMIT 200').all().map(s => ({ ...s, live: Boolean(s.live && Date.now() - s.updated < 20000) })));
+        // Rules 11a-11c: one query returns the share rows with a correlated record count, live shares first.
+        const rows = db.prepare(`SELECT s.id,s.title,s.created,s.updated,
+          CASE WHEN s.live=1 AND s.updated>? THEN 1 ELSE 0 END AS isLive,
+          (SELECT count(*) FROM records r WHERE r.share=s.id) AS count
+          FROM shares s WHERE s.revoked=0 ORDER BY isLive DESC,s.updated DESC,s.id LIMIT 200`).all(Date.now() - liveWindowMs);
+        return json(res, 200, rows.map(s => ({ id: s.id, title: s.title, created: s.created, updated: s.updated, live: Boolean(s.isLive), count: s.count })));
       }
       if (req.method === 'POST' && path === '/api/shares') {
         if (!equal(token, uploadKey)) throw failure(401, 'Invalid team upload key');
@@ -105,7 +112,7 @@ export function createService({ dataDir = './data', uploadKey, publicUrl = 'http
         }
         if (share.revoked) throw failure(404, 'Share not found');
         if (req.method === 'GET' && !action) {
-          return json(res, 200, { id, title: share.title, updated: share.updated, live: Boolean(share.live && Date.now() - share.updated < 20000), draft: publicDraft(id), records: db.prepare('SELECT body FROM records WHERE share=? ORDER BY position').all(id).map(r => JSON.parse(r.body)) });
+          return json(res, 200, { id, title: share.title, updated: share.updated, live: Boolean(share.live && Date.now() - share.updated < liveWindowMs), draft: publicDraft(id), records: db.prepare('SELECT body FROM records WHERE share=? ORDER BY position').all(id).map(r => JSON.parse(r.body)) });
         }
         if (req.method === 'GET' && action === 'events') {
           const count = [...viewers.values()].reduce((n, set) => n + set.size, 0);
@@ -125,7 +132,7 @@ export function createService({ dataDir = './data', uploadKey, publicUrl = 'http
         }
         if (req.method === 'POST' && action === 'draft') {
           const draft = validateDraft(await body(req));
-          if (!share.live || Date.now() - share.updated >= 20000) throw failure(409, 'Drafts require a live share');
+          if (!share.live || Date.now() - share.updated >= liveWindowMs) throw failure(409, 'Drafts require a live share');
           updateDraft(id, draft);
           db.prepare('UPDATE shares SET updated=? WHERE id=?').run(Date.now(), id);
           notify(id);

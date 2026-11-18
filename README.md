@@ -61,6 +61,8 @@ After pair programming, use `/share stop` to stop live updates while keeping the
 | `/share drafts on` | Opt in to sharing unsent editor text while live sharing |
 | `/share drafts off` | Disable draft previews and clear the current preview |
 
+Pi 1.5 and later ship their own `/share` command (Radius artifact or GitHub gist) and reserve the name for it. On those versions this extension registers **`/pishare`** instead, so read `/share` in the table above as `/pishare`. On older Pi both names work and a bare `/share` reports status. Actions and output are identical under either name.
+
 Resuming Pi never automatically resumes publishing. Uploading again updates the same share when its saved owner entry is available. A revoked share cannot be restarted; delete its hosted copy before creating a new share.
 
 ### Optional: share what you are typing
@@ -180,10 +182,10 @@ If `9080` must be the externally visible **HTTPS** port, terminate TLS on that p
 
 ## Features and limitations
 
-- Browser viewer with search, expandable tool output, independent scrolling, follow-live mode, and automatic reconnection.
+- Browser viewer with search, expandable tool output, independent scrolling, follow-live mode, and automatic reconnection. Transcripts open in **Read** mode, which shows prompts, replies, errors, and notices. The header's **Advanced: On/Off** button adds tool activity (grouped into one step row per turn), summaries, model thinking, and record metadata, and remembers your choice in that browser.
 - Light and dark themes follow the system preference by default. The **Theme** button in the header cycles through both explicit themes and back to **System**. Your selection is remembered in the browser; System mode follows OS theme changes automatically.
 - Persistent SQLite storage, separate per-share owner keys, idempotent record upserts, and batched uploads with live retries.
-- User prompts, assistant text, tool calls, output, and errors are shared. System prompts, model thinking, image data, provider signatures, raw provider events, and arbitrary tool-result metadata are omitted.
+- User prompts, assistant text, tool calls, output, errors, and model thinking are shared. Read mode hides thinking, and Advanced mode shows it. System prompts, thinking signatures, image data, provider signatures, raw provider events, and arbitrary tool-result metadata are omitted.
 - User and assistant messages render Markdown **in the browser only**, enabled by default. The header's **Markdown: On/Off** button switches between formatting and the original text, remembers your choice in that browser, and applies to streaming updates. Headings, lists, tables, links, and fenced code blocks are supported. Tool output and unsent draft previews always remain plain text.
 - Markdown uses locally served Marked and DOMPurify libraries, with raw HTML disabled, sanitized output, and images replaced by text to avoid tracking requests. No CDN is used. Stored messages and API responses remain unchanged; rendering never runs on the server. If rendering is unavailable, the viewer falls back to plain text.
 - Text and tool records are capped at 24,000 characters. This is a readable log, not an exact terminal mirror or restorable Pi session export.

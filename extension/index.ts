@@ -5,12 +5,35 @@ import { messageRecord, toolRecord } from './records.mjs';
 type Share = { id: string; ownerKey: string; url: string; server: string };
 const STATE = 'pi-share-history-owner-v1';
 
-export default function (pi: ExtensionAPI) {
+// Pi 1.5 added its own /share (Radius artifact or GitHub gist). It wins
+// autocomplete and intercepts a bare /share before extension dispatch, so
+// registering /share there only yields a startup warning and a name that means
+// something else. Older Pi has no such command and /share must keep working.
+export function piHasBuiltInShare(version?: string): boolean {
+  const [major, minor] = String(version ?? '').split('.').map(Number);
+  if (!Number.isFinite(major) || !Number.isFinite(minor)) return false;
+  return major > 1 || (major === 1 && minor >= 5);
+}
+
+async function detectPiHasBuiltInShare(): Promise<boolean> {
+  try {
+    const { VERSION } = (await import('@earendil-works/pi-coding-agent')) as { VERSION?: string };
+    return piHasBuiltInShare(VERSION);
+  } catch {
+    // Cannot tell: keep the historical name rather than losing it silently.
+    return false;
+  }
+}
+
+export default async function (pi: ExtensionAPI) {
   let share: Share | undefined;
   let ctx: ExtensionContext | undefined;
   let live = false;
   let timer: ReturnType<typeof setInterval> | undefined;
   let pending = new Map<string, any>();
+  // Pi's tool_execution_end event carries no args, so keep the arguments from
+  // start/update and merge them back for the final upsert.
+  let toolArgs = new Map<string, any>();
   let sending: Promise<void> | undefined;
   let lastError = '';
   let draftsEnabled = false;
@@ -72,9 +95,32 @@ export default function (pi: ExtensionAPI) {
   }
   function put(record: any) { if (record) { pending.set(record.id, record); status(); } }
   function capture(context: ExtensionContext) {
-    for (const entry of context.sessionManager.getBranch()) {
-      if (entry.type === 'message') put(messageRecord(entry.message));
-      else if (entry.type === 'compaction' || entry.type === 'branch_summary') {
+    const branch = context.sessionManager.getBranch();
+    // Tool calls live in assistant blocks, and the result lives in a later
+    // toolResult message, so pair them first. Ids then match the live tool
+    // events, and a history upload and a live session upsert the same record.
+    const results = new Map<string, any>();
+    for (const entry of branch) {
+      if (entry.type === 'message' && entry.message?.role === 'toolResult') results.set(entry.message.toolCallId, entry.message);
+    }
+    for (const entry of branch) {
+      if (entry.type === 'message') {
+        const message = entry.message;
+        put(messageRecord(message));
+        if (message?.role !== 'assistant' || !Array.isArray(message.content)) continue;
+        for (const block of message.content) {
+          if (block.type !== 'toolCall') continue;
+          const result = results.get(block.id);
+          // A call with no result yet stays running, and its arguments seed the map so the
+          // later end event upserts the same body instead of dropping them.
+          if (!result) toolArgs.set(block.id, block.arguments);
+          put(toolRecord({
+            type: result ? 'tool_execution_end' : 'tool_execution_start',
+            toolCallId: block.id, toolName: block.name, args: block.arguments,
+            result: result ? { content: result.content } : undefined, isError: Boolean(result?.isError),
+          }));
+        }
+      } else if (entry.type === 'compaction' || entry.type === 'branch_summary') {
         put({ id: `entry:${entry.id}`, kind: entry.type, timestamp: Date.parse(entry.timestamp), text: entry.summary.slice(0, 24000), label: entry.type });
       }
     }
@@ -123,7 +169,7 @@ export default function (pi: ExtensionAPI) {
   }
   pi.on('session_start', (_event, context) => {
     disableDrafts(); pendingDraft = undefined; draftText = '';
-    ctx = context; share = undefined; pending = new Map(); live = false;
+    ctx = context; share = undefined; pending = new Map(); toolArgs = new Map(); live = false;
     for (const entry of context.sessionManager.getBranch()) {
       if (entry.type === 'custom' && entry.customType === STATE) share = entry.data as Share | undefined;
     }
@@ -149,9 +195,20 @@ export default function (pi: ExtensionAPI) {
   });
   pi.on('message_update', (event) => { if (live) put(messageRecord(event.message)); });
   pi.on('message_end', (event) => { if (live) put(messageRecord(event.message)); });
-  for (const name of ['tool_execution_start', 'tool_execution_update', 'tool_execution_end'] as const) {
-    pi.on(name, event => { if (live) put(toolRecord(event)); });
+  for (const name of ['tool_execution_start', 'tool_execution_update'] as const) {
+    pi.on(name, event => {
+      if (!live) return;
+      if (event.args !== undefined) toolArgs.set(event.toolCallId, event.args);
+      put(toolRecord(event));
+    });
   }
+  pi.on('tool_execution_end', event => {
+    if (!live) return;
+    // ToolExecutionEndEvent has no `args` field; reuse the ones from start/update.
+    const args = (event as { args?: any }).args ?? toolArgs.get(event.toolCallId);
+    toolArgs.delete(event.toolCallId);
+    put(toolRecord({ ...event, args }));
+  });
   pi.on('session_tree', (_event, context) => {
     if (live) {
       put({ id: `branch:${Date.now()}`, kind: 'notice', timestamp: Date.now(), text: 'Publisher navigated to another branch. Previously shared history remains visible.', label: 'Branch change' });
@@ -161,10 +218,12 @@ export default function (pi: ExtensionAPI) {
   pi.on('agent_settled', (_event, context) => { if (live) capture(context); });
   pi.on('session_shutdown', async () => {
     try { await stop(); }
-    catch { ctx?.ui.notify('Share final sync failed. The server retains only acknowledged uploads; resume this session and run /share upload to retry history.', 'warning'); }
+    catch { ctx?.ui.notify('Share final sync failed. The server retains only acknowledged uploads; resume this session and run /pishare upload to retry history.', 'warning'); }
     ctx?.ui.setStatus('pi-share-history', undefined);
   });
-  pi.registerCommand('share', {
+  // Pi 1.5 reserves /share for its own command, so this extension answers to
+  // /pishare there and to /share on older versions; both take the same actions.
+  const shareCommand = {
     description: 'Share current session: start | upload | stop | status | revoke | delete | drafts on|off',
     handler: async (args, context) => {
       ctx = context;
@@ -175,17 +234,17 @@ export default function (pi: ExtensionAPI) {
             disableDrafts(); await flush();
             context.ui.notify('Draft sharing disabled; any submitted history remains public.', 'info'); return;
           }
-          if (!live || !share) throw new Error('Run /share start before enabling draft sharing');
+          if (!live || !share) throw new Error('Run /pishare start before enabling draft sharing');
           if (context.mode !== 'tui') throw new Error('Draft sharing is only available in Pi interactive terminal mode');
           if (!await context.ui.confirm('Share what you type before sending?', 'Anyone viewing this public share can read your unsent text, including text you later delete. Draft previews are temporary, but viewers can copy them.')) return;
           draftsEnabled = true; submittedText = undefined;
           if (!draftTimer) draftTimer = setInterval(pollDraft, 400);
           draftTimer.unref(); status();
-          context.ui.notify('Draft sharing ON — unsent text is PUBLIC. Use /share drafts off to disable.', 'warning');
+          context.ui.notify('Draft sharing ON — unsent text is PUBLIC. Use /pishare drafts off to disable.', 'warning');
           return;
         }
         if (action === 'status') {
-          return context.ui.notify(share ? `${share.url}\n${live ? 'Live sharing enabled' : 'Live sharing stopped'}; draft sharing ${draftsEnabled ? 'ON — PUBLIC' : 'off'}; ${pending.size} pending updates${lastError ? `\n${lastError}` : ''}` : 'Not shared. Use /share start or /share upload.', 'info');
+          return context.ui.notify(share ? `${share.url}\n${live ? 'Live sharing enabled' : 'Live sharing stopped'}; draft sharing ${draftsEnabled ? 'ON — PUBLIC' : 'off'}; ${pending.size} pending updates${lastError ? `\n${lastError}` : ''}` : 'Not shared. Use /pishare start or /pishare upload.', 'info');
         }
         if (action === 'stop') { await stop(); context.ui.notify('Live updates stopped; the saved transcript is still public.', 'info'); return; }
         if (action === 'revoke' || action === 'delete') {
@@ -197,10 +256,10 @@ export default function (pi: ExtensionAPI) {
           await request(share.server, `/api/shares/${share.id}${action === 'revoke' ? '/revoke' : ''}`, share.ownerKey, undefined, action === 'delete' ? 'DELETE' : 'POST');
           pending.clear(); pendingDraft = undefined;
           if (action === 'delete') { share = undefined; pi.appendEntry(STATE, null); }
-          status(); context.ui.notify(`Share ${action === 'delete' ? 'deleted' : 'revoked; use /share delete to remove stored data'}.`, 'info'); return;
+          status(); context.ui.notify(`Share ${action === 'delete' ? 'deleted' : 'revoked; use /pishare delete to remove stored data'}.`, 'info'); return;
         }
-        if (action !== 'start' && action !== 'upload') throw new Error('Usage: /share start|upload|stop|status|revoke|delete|drafts on|off');
-        if (!await context.ui.confirm('Publish current session publicly?', 'The current branch, prompts, source code and tool output will be readable by anyone on the internet. There is no automatic secret redaction. System prompts, thinking, images and internal metadata are omitted. Previously published history is retained.')) return;
+        if (action !== 'start' && action !== 'upload') throw new Error('Usage: /pishare start|upload|stop|status|revoke|delete|drafts on|off');
+        if (!await context.ui.confirm('Publish current session publicly?', 'The current branch, prompts, model thinking, source code and tool output will be readable by anyone on the internet. There is no automatic secret redaction. System prompts, thinking signatures, images and internal metadata are omitted. Previously published history is retained.')) return;
         if (!share) {
           const key = process.env.PI_SHARE_KEY;
           if (!key) throw new Error('Set PI_SHARE_KEY to the team upload key before starting Pi');
@@ -219,5 +278,7 @@ export default function (pi: ExtensionAPI) {
         context.ui.notify(`${live ? 'Live share' : 'Saved transcript'}: ${share.url}`, 'info');
       } catch (error: any) { context.ui.notify(error.message || String(error), 'error'); }
     },
-  });
+  };
+  pi.registerCommand('pishare', shareCommand);
+  if (!await detectPiHasBuiltInShare()) pi.registerCommand('share', shareCommand);
 }

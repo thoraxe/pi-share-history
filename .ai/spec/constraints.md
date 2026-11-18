@@ -12,3 +12,4 @@ Rules that span multiple components and do not belong to any single what/ file.
 8. **Readable log, not a mirror.** Truncation and allowlisting are intentional. Features must not promise exact session restoration or terminal fidelity.
 9. **No durable upload queue.** Acknowledged writes survive a restart. Unacknowledged updates are lost. The publisher must re-publish them from persisted history.
 10. **No publisher accounts or admin UI.** Access control is limited to keys, proxy/VPN placement, and manual revocation/deletion.
+11. **An identity is not access.** A viewer identity from the trusted proxy MUST NOT gate a transcript read. It MUST NOT grant a write. [PLANNED: #37]

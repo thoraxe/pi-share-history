@@ -29,3 +29,4 @@
 | **Tool group** | One disclosure row for consecutive `tool`, `toolResult`, and `bashExecution` records between two messages. |
 | **Publisher** | A Pi user who runs the extension against the service. |
 | **Viewer** | A browser that reads the directory or a transcript. It needs no authentication. |
+| **Trusted proxy identity** | The viewer identity that the service reads from `PROXY_AUTH_HEADER` when `TRUST_PROXY_AUTH` is on. |

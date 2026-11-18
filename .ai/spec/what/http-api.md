@@ -18,6 +18,9 @@ The service exposes a small JSON API, an SSE stream, and static browser assets u
 7. Every other write (`POST .../records`, `.../draft`, `.../stop`, `.../revoke`, `DELETE .../<id>`) MUST authenticate with that share's owner key.
 8. Key comparison MUST be constant-time with respect to the secret (hash then timing-safe compare).
 9. Reads (`GET /health`, `GET /api/shares`, `GET /api/shares/<id>`, `GET .../events`, static assets) MUST NOT require authentication.
+9a. When `TRUST_PROXY_AUTH` is on, the service MUST read the viewer identity from `PROXY_AUTH_HEADER` and MUST attach it to the request. [PLANNED: #37]
+9b. When `TRUST_PROXY_AUTH` is off, the service MUST ignore `PROXY_AUTH_HEADER`. A client MUST NOT be able to assert an identity. [PLANNED: #37]
+9c. A read MUST NOT require an identity. The service MUST NOT use the identity to refuse a read. [PLANNED: #37]
 
 ### Endpoints
 
@@ -53,6 +56,8 @@ The service exposes a small JSON API, an SSE stream, and static browser assets u
 - `PUBLIC_URL.pathname` — route prefix. It must match `^(\/[A-Za-z0-9_-]+)+$` or be empty.
 - 8-second draft TTL, configurable through the service factory for tests.
 - `UPLOAD_KEY` — upload key. The length must be at least 24 characters.
+- `TRUST_PROXY_AUTH` — enables the trusted identity header. Default off.
+- `PROXY_AUTH_HEADER` — identity header name. Default `X-Auth-Request-Email`.
 
 ## Constraints
 
@@ -64,4 +69,4 @@ The service exposes a small JSON API, an SSE stream, and static browser assets u
 
 | Ticket | Summary |
 |---|---|
-| — | No planned changes recorded. |
+| #37 | Viewer identity from the authenticated proxy header. |

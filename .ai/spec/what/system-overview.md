@@ -1,6 +1,6 @@
 # System Overview
 
-Pi share history has two parts: a Pi extension that captures and uploads session records, and a self-hosted Node service. The service stores the records in SQLite and serves a read-only browser viewer. Multiple publishers share one service and one team upload key. Each share gets its own owner key. Published transcripts are public. There is no viewer login and no automatic secret redaction.
+Pi share history has two parts: a Pi extension that captures and uploads session records, and a self-hosted Node service. The service stores the records in SQLite and serves a read-only browser viewer. Multiple publishers share one service and one team upload key. Each share gets its own owner key. Published transcripts are public. There is no viewer account system and no automatic secret redaction. A viewer may hold a trusted proxy identity, and that identity grants no read access.
 
 ## Behavioral Rules
 
@@ -34,6 +34,8 @@ Pi share history has two parts: a Pi extension that captures and uploads session
 Service environment (read by `server/index.mjs` when run as the entry point):
 
 - `UPLOAD_KEY` — team upload key. It MUST contain at least 24 characters. Required.
+- `TRUST_PROXY_AUTH` — enables the trusted identity header. Default off.
+- `PROXY_AUTH_HEADER` — identity header name. Default `X-Auth-Request-Email`.
 - `PUBLIC_URL` — public service URL. It controls generated viewer links and the route prefix. It must be HTTP(S), with no credentials, query, or fragment, and with simple slash-separated path segments. Default `http://localhost:9080`.
 - `DATA_DIR` — directory holding `history.sqlite`. Default `./data`.
 - `PORT` — HTTP listen port. Default `9080`.
@@ -50,9 +52,10 @@ Extension environment:
 - The browser client MUST be served from the same origin as the API and MUST NOT load third-party assets or CDNs.
 - Storage limits are part of the contract. The limits are 1 MiB per HTTP request, 128 KiB per record, and 10,000 records or 20 MiB per share. The service allows 1,000 shares and 200 concurrent SSE viewers.
 - There is no publisher account system, admin dashboard, automatic expiry, or access control beyond keys.
+- The service MUST obtain a viewer identity only from the trusted proxy header. The service MUST NOT call an identity provider.
 
 ## Planned Changes
 
 | Ticket | Summary |
 |---|---|
-| — | No planned changes recorded. |
+| #37 | Viewer identity from the authenticated proxy header. |

@@ -27,5 +27,6 @@
 | **Thinking** | A model reasoning block. Pi records it with the assistant message. The extension publishes it in the record's `thinking` field. Read mode hides it and Advanced mode shows it. |
 | **New-activity pill** | A control at the bottom of the viewport in a transcript. It appears when records that the current view mode shows arrive while the user is away from the bottom. It shows the count of those records. |
 | **Tool group** | One disclosure row for consecutive `tool`, `toolResult`, and `bashExecution` records between two messages. |
+| **Failure reason** | A short text that explains a failed tool step. The viewer takes it from the record `errorMessage` or `text` field and shows it in the Read-mode notice. |
 | **Publisher** | A Pi user who runs the extension against the service. |
 | **Viewer** | A browser that reads the directory or a transcript. It needs no authentication. |

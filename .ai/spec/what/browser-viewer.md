@@ -48,6 +48,12 @@ The viewer is a static single-page client served by the service. It has two page
 7l. The row summary MUST show a step count and the tool names from `record.label`. Example: `4 steps · read, edit, bash ×2`. [DONE: #3]
 7m. An open row MUST list each step with its tool name and its status. The body of each step MUST stay collapsed until the user opens it. [DONE: #3]
 7n. A failed step MUST add a warning to the row summary whenever the viewer shows the row. The viewer shows the row only in Advanced mode. Read mode MUST show a one-line notice that names each failed step. [DONE: #3]
+7n1. Read mode MUST show a failure reason in the failed-step notice. The notice MUST read `<tool> failed: <reason>`. [PLANNED: #28]
+7n2. The viewer MUST take the reason from the record `errorMessage` field when it exists. Otherwise the viewer MUST take the reason from the record `text` field. [PLANNED: #28]
+7n3. The viewer MUST use the first non-empty line of the reason source. [PLANNED: #28]
+7n4. The viewer MUST truncate the reason to 120 characters. The viewer MUST append `…` after a truncation. [PLANNED: #28]
+7n5. A failed step with no reason MUST show only the tool name and `failed`. The notice MUST NOT contain a separator. [PLANNED: #28]
+7n6. The reason MUST come from the stored record. The viewer MUST NOT request new data for the reason. [PLANNED: #28]
 7o. Grouping MUST keep each row stable across live appends. A live append MUST NOT duplicate a row. A live append MUST NOT reorder a row. [DONE: #3]
 
 ### Metadata
@@ -128,4 +134,4 @@ The viewer is a static single-page client served by the service. It has two page
 
 | Ticket | Summary |
 |---|---|
-| — | No planned changes recorded. |
+| #28 | Name the failure reason in the Read-mode failed-step notice. |

@@ -11,4 +11,4 @@ Rules that span multiple components and do not belong to any single what/ file.
 7. **Node 22.18+.** The service depends on built-in `node:sqlite`. There is no other database driver.
 8. **Readable log, not a mirror.** Truncation and allowlisting are intentional. Features must not promise exact session restoration or terminal fidelity.
 9. **No durable upload queue.** Acknowledged writes survive a restart. Unacknowledged updates are lost. The publisher must re-publish them from persisted history.
-10. **No publisher accounts or admin UI.** Access control is limited to keys, proxy/VPN placement, and manual revocation/deletion.
+10. **No publisher accounts.** Access control is limited to keys, proxy/VPN placement, and manual revocation/deletion. The service exposes one operator surface: an admin page that lists shares and deletes one. There are no user accounts, no per-user quotas, and no per-user revocation. [PLANNED: #41]

@@ -9,6 +9,8 @@ Pi share history has two parts: a Pi extension that captures and uploads session
 1. The service MUST allow anyone who can reach it to read the session directory, any non-revoked share, and its records, without authentication.
 2. The service MUST require the team upload key to create a share. It MUST require the share's owner key to modify, revoke, or delete that share.
 3. The team upload key MUST NOT be able to modify, revoke, or delete a share created with a different owner key.
+3a. The admin key MUST authorize every owner action on every share. The admin key MUST NOT replace the upload key for share creation. [PLANNED: #34]
+3b. When `ADMIN_KEY` is unset, the service MUST have no admin surface. [PLANNED: #34]
 4. The system MUST NOT do automatic secret redaction. It provides none. The upload allowlist and truncation are the only limits on published content.
 5. Transport MUST be HTTPS for any non-localhost deployment. The extension accepts plain HTTP only for `localhost`, `127.0.0.1`, and `[::1]`.
 6. The browser viewer MUST NOT require credentials and MUST be read-only.
@@ -17,7 +19,7 @@ Pi share history has two parts: a Pi extension that captures and uploads session
 
 7. The extension (`extension/`) registers share commands in Pi, captures session records, and uploads them in batches.
 8. The service (`server/`) validates configuration, owns the SQLite database, exposes the HTTP API, and fans out live invalidations over SSE.
-9. The browser client (`web/`) renders the directory and transcripts, follows live updates, and applies presentation-only Markdown and theme choices.
+9. The browser client (`web/`) renders the directory and transcripts, follows live updates, and applies presentation-only Markdown and theme choices. It also serves the admin page.
 
 ### Publication lifecycle
 
@@ -34,6 +36,7 @@ Pi share history has two parts: a Pi extension that captures and uploads session
 Service environment (read by `server/index.mjs` when run as the entry point):
 
 - `UPLOAD_KEY` — team upload key. It MUST contain at least 24 characters. Required.
+- `ADMIN_KEY` — operator secret. It MUST contain at least 24 characters when set. Optional. It enables the admin routes and the admin page.
 - `PUBLIC_URL` — public service URL. It controls generated viewer links and the route prefix. It must be HTTP(S), with no credentials, query, or fragment, and with simple slash-separated path segments. Default `http://localhost:9080`.
 - `DATA_DIR` — directory holding `history.sqlite`. Default `./data`.
 - `PORT` — HTTP listen port. Default `9080`.
@@ -49,10 +52,10 @@ Extension environment:
 - The service MUST run on Node 22.18+ because it uses built-in `node:sqlite`.
 - The browser client MUST be served from the same origin as the API and MUST NOT load third-party assets or CDNs.
 - Storage limits are part of the contract. The limits are 1 MiB per HTTP request, 128 KiB per record, and 10,000 records or 20 MiB per share. The service allows 1,000 shares and 200 concurrent SSE viewers.
-- There is no publisher account system, admin dashboard, automatic expiry, or access control beyond keys.
+- There is no publisher account system, no automatic expiry, and no read access control beyond keys. The only operator surface is the admin key and its admin page.
 
 ## Planned Changes
 
 | Ticket | Summary |
 |---|---|
-| — | No planned changes recorded. |
+| #41 | Operator admin surface: `ADMIN_KEY`, share list, delete. |

@@ -11,7 +11,7 @@ Pi share history is a Pi extension plus a small self-hosted service that publish
 
 ## Scope
 
-Covers the extension (`extension/`), the service (`server/`), the static browser client (`web/`), and the deployment templates (`compose.yaml`, `Dockerfile`, `deploy/`). Out of scope: the Pi agent runtime itself, reverse proxies other than the example Caddyfile, and any team access-control layer (none is implemented).
+Covers the extension (`extension/`), the service (`server/`), the static browser client (`web/`), the operator admin page, and the deployment templates (`compose.yaml`, `Dockerfile`, `deploy/`). Out of scope: the Pi agent runtime itself, publisher accounts, per-user quotas, reverse proxies other than the example Caddyfile, and any team access-control layer (none is implemented).
 
 ## Audience
 

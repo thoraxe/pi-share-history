@@ -18,6 +18,8 @@ The service exposes a small JSON API, an SSE stream, and static browser assets u
 7. Every other write (`POST .../records`, `.../draft`, `.../stop`, `.../revoke`, `DELETE .../<id>`) MUST authenticate with that share's owner key.
 8. Key comparison MUST be constant-time with respect to the secret (hash then timing-safe compare).
 9. Reads (`GET /health`, `GET /api/shares`, `GET /api/shares/<id>`, `GET .../events`, static assets) MUST NOT require authentication.
+9d. The `ADMIN_KEY` MUST satisfy the owner check on every share. The admin key MUST be hashed and compared in constant time, the same way as an owner key. [PLANNED: #34]
+9e. When `ADMIN_KEY` is unset, the admin routes MUST return `404` and no admin comparison MUST occur. [PLANNED: #34]
 
 ### Endpoints
 
@@ -35,6 +37,7 @@ The service exposes a small JSON API, an SSE stream, and static browser assets u
 18. `DELETE /api/shares/<id>` MUST delete the share and cascade to its records, drop its draft, notify viewers with `removed`, and close their streams.
 19. `POST /api/shares/<id>/draft` MUST accept a draft and return `409` unless the share is live and updated within the last 20 seconds.
 20. Static routes `/`, `/s/<id>`, `/app.js`, `/theme.js`, `/markdown.js`, `/style.css`, and `/vendor/*` MUST serve the bundled browser client. The route `/s/<id>` MUST serve the same HTML shell as `/`.
+20a. The static route `/admin/` MUST serve the admin page shell and `/admin.js` MUST serve its script. [PLANNED: #36]
 
 ### Limits and errors
 
@@ -48,11 +51,20 @@ The service exposes a small JSON API, an SSE stream, and static browser assets u
 28. The service MUST enforce a 15-second request timeout and a 10-second header timeout.
 29. An SSE client whose unsent buffer exceeds 64 KiB MUST be disconnected.
 
+### Admin routes
+
+30. `GET /api/admin/shares` MUST return every share, including revoked shares, ordered by `updated` descending. Each item MUST hold `id`, `title`, `created`, `updated`, `live`, and `revoked`. The route MUST require the admin key. [PLANNED: #35]
+31. `DELETE /api/admin/shares/<id>` MUST behave like the owner delete in rule 18. The route MUST require the admin key. An unknown id MUST return `404`. [PLANNED: #35]
+32. The admin page MUST send the admin key in the URL fragment and MUST strip the fragment after the first load. The page MUST send the key as a Bearer token and MUST NOT store it in a cookie or in `localStorage`. [PLANNED: #36]
+33. The admin page MUST show one row for each share with its title, its state as live, saved, or revoked, its last update, and one delete action. The delete action MUST require confirmation. [PLANNED: #36]
+34. The admin page MUST show the status code when a delete fails. [PLANNED: #36]
+
 ## Configuration Surface
 
 - `PUBLIC_URL.pathname` — route prefix. It must match `^(\/[A-Za-z0-9_-]+)+$` or be empty.
 - 8-second draft TTL, configurable through the service factory for tests.
 - `UPLOAD_KEY` — upload key. The length must be at least 24 characters.
+- `ADMIN_KEY` — operator secret, optional. The length must be at least 24 characters when set.
 
 ## Constraints
 
@@ -64,4 +76,4 @@ The service exposes a small JSON API, an SSE stream, and static browser assets u
 
 | Ticket | Summary |
 |---|---|
-| — | No planned changes recorded. |
+| #41 | Operator admin surface: `ADMIN_KEY`, share list, delete. |

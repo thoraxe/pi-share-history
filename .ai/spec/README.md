@@ -91,7 +91,7 @@ The spec is the contract. Build implementation against an approved spec, not the
 4. Update `constraints.md`, `glossary.md`, or `decisions/` when the change needs them.
 5. Open a pull request (PR) that contains only spec changes. Do not add implementation before approval.
 6. Request review against the checklist below.
-7. A human reviews the spec and applies the `spec:approved` label when the review passes. A spec PR without this label is not a build target.
+7. A human reviews the spec and applies the `spec-approved` label when the review passes. A spec PR without this label is not a build target.
 8. Add the implementation as a second commit on the same PR. Do not open a separate implementation PR.
 9. When the behavior ships, change each marker to `[DONE: TICKET-XXXX]`.
 10. If reality must differ from the spec, change the spec first. Do not merge behavior that the spec does not describe.
@@ -101,9 +101,9 @@ The spec is the contract. Build implementation against an approved spec, not the
 
 | Label | Meaning |
 |---|---|
-| `spec:draft` | Work in progress. Review not requested. |
-| `spec:approved` | Approved. Implementation may start. |
-| `spec:blocked` | On hold. Do not implement. |
+| `spec-draft` | Work in progress. Review not requested. |
+| `spec-approved` | Approved. Implementation may start. |
+| `spec-blocked` | On hold. Do not implement. |
 
 ### Review checklist
 

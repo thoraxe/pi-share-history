@@ -18,7 +18,7 @@ Two gates. Do not skip one. One pull request carries both the approved spec and 
 
 1. An agent writes the spec commit.
 2. Agents review and fix the spec commit in a loop until a review reports no P0 and no P1 findings.
-3. Stop. A human reviews the spec and applies the `spec:approved` label. An agent MUST NOT apply `spec:approved` and MUST NOT add `ready-to-merge`, enable auto-merge, or merge the pull request while it holds spec text only.
+3. Stop. A human reviews the spec and applies the `spec-approved` label. An agent MUST NOT apply `spec-approved` and MUST NOT add `ready-to-merge`, enable auto-merge, or merge the pull request while it holds spec text only.
 
 ### Implementation commit
 

@@ -1,6 +1,6 @@
 ---
 name: spec-implement
-description: Implement an approved pi-share-history spec. Use when building code against a spec PR with the `spec:approved` label, changing server/, extension/, web/, or tests, or converting PLANNED markers to DONE.
+description: Implement an approved pi-share-history spec. Use when building code against a spec PR with the `spec-approved` label, changing server/, extension/, web/, or tests, or converting PLANNED markers to DONE.
 ---
 
 # Spec implementation
@@ -12,9 +12,9 @@ Build against the approved spec. The spec is the contract. Do not merge behavior
 Stop and report when either condition is false:
 
 1. The spec PR is open.
-2. A human applied the `spec:approved` label to the spec PR.
+2. A human applied the `spec-approved` label to the spec PR.
 
-An agent MUST NOT apply `spec:approved`. That label is the human approval gate. Do not start implementation before it exists.
+An agent MUST NOT apply `spec-approved`. That label is the human approval gate. Do not start implementation before it exists.
 
 Check with:
 

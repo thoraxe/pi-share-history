@@ -1,4 +1,14 @@
 FROM node:22-bookworm-slim
+
+ARG VERSION=dev
+ARG REVISION=unknown
+
+LABEL org.opencontainers.image.title="pi-share-history" \
+      org.opencontainers.image.description="Persistent, live Pi session sharing for a team" \
+      org.opencontainers.image.version="$VERSION" \
+      org.opencontainers.image.revision="$REVISION" \
+      org.opencontainers.image.source="https://github.com/thoraxe/pi-share-history"
+
 WORKDIR /app
 COPY package.json ./
 COPY server ./server

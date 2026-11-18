@@ -13,7 +13,7 @@ All domains, server addresses, and deployment paths below are examples. Replace 
 ### 1. Install the extension
 
 ```sh
-pi install https://github.com/raptorsun/pi-share-history
+pi install https://github.com/thoraxe/pi-share-history
 ```
 
 If already installed as a Git package:
@@ -109,7 +109,7 @@ The example deployment uses Docker Compose for the application and Caddy on the 
 On your server:
 
 ```sh
-git clone https://github.com/raptorsun/pi-share-history.git
+git clone https://github.com/thoraxe/pi-share-history.git
 cd pi-share-history
 cp .env.example .env
 chmod 600 .env
@@ -179,6 +179,22 @@ The proxy must **preserve** `/pi-history` when forwarding requests: use Caddy `h
 If the proxy runs in Docker, `127.0.0.1` inside that container is not the host. Attach both containers to the same Docker network and proxy to `history:9080`, or configure the host gateway explicitly. Remove the host port mapping if it is unnecessary.
 
 If `9080` must be the externally visible **HTTPS** port, terminate TLS on that port at your proxy and move the private application binding to a different port. Set `PUBLIC_URL` and `PI_SHARE_URL` to `https://logs.example.com:9080/pi-history`. Certificate issuance still needs a supported validation route, such as public port 80 or DNS validation; forwarding port 9080 alone is insufficient.
+
+## Releases
+
+Every release is a git tag `vX.Y.Z` and one GitHub Release. One minor version is one release, so `0.2.0` is the next release after `0.1.0`. The patch number `Z` stays `0` for a normal release and changes only for a rebuild or a hotfix of that same release.
+
+The release workflow runs the tests and publishes a container image to GitHub Container Registry:
+
+```sh
+ghcr.io/thoraxe/pi-share-history:0.1.0
+ghcr.io/thoraxe/pi-share-history:0.1
+ghcr.io/thoraxe/pi-share-history:latest
+```
+
+`latest` follows the most recent tag. Pin a full version for a deployment.
+
+The service and the extension are released together. The HTTP API has no versioning scheme, so use the extension and the service from the same tag. The release notes state the pair and any breaking change.
 
 ## Features and limitations
 

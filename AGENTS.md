@@ -12,20 +12,20 @@ Spec changes follow the Spec Workflow in `.ai/spec/README.md`.
 
 ## Review and merge
 
-Two gates. Do not skip one. Auto-merge is for implementation pull requests only.
+Two gates. Do not skip one. One pull request carries both the approved spec and its implementation.
 
-### Spec pull requests
+### Spec commit
 
-1. An agent writes the spec pull request.
-2. Agents review and fix the spec pull request in a loop until a review reports no P0 and no P1 findings.
-3. Stop. A human reviews the spec and applies the `spec:approved` label. An agent MUST NOT apply `spec:approved` and MUST NOT add `ready-to-merge`, enable auto-merge, or merge a spec pull request.
+1. An agent writes the spec commit.
+2. Agents review and fix the spec commit in a loop until a review reports no P0 and no P1 findings.
+3. Stop. A human reviews the spec and applies the `spec:approved` label. An agent MUST NOT apply `spec:approved` and MUST NOT add `ready-to-merge`, enable auto-merge, or merge the pull request while it holds spec text only.
 
-### Implementation pull requests
+### Implementation commit
 
-1. Build against the approved spec pull request. The implementation branch includes the spec change until the spec pull request merges.
-2. Agents review and fix the implementation pull request in a loop until a review reports no P0 and no P1 findings.
-3. An agent adds the `ready-to-merge` label and enables auto-merge (squash). Auto-merge merges the implementation pull request.
-4. Merge the spec pull request first when it is still open. Rebase the implementation branch onto `main` after the spec lands, because the branch no longer needs the spec change.
+1. Build against the approved spec. Add the implementation as a second commit on the same pull request branch. Do not create a separate implementation branch or pull request.
+2. Do not amend, rebase, or force-push the approved spec commit. The human approval applies to that commit.
+3. Agents review and fix the implementation commit in a loop until a review reports no P0 and no P1 findings.
+4. An agent adds the `ready-to-merge` label and enables auto-merge (squash). Auto-merge merges the pull request.
 
 ## Development
 

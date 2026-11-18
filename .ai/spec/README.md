@@ -89,14 +89,13 @@ The spec is the contract. Build implementation against an approved spec, not the
 2. Create a branch for the spec change, for example `spec/<slug>`.
 3. Edit the `what/` file that owns the behavior. Add or change the rules. Mark new behavior `[PLANNED: TICKET-XXXX]`.
 4. Update `constraints.md`, `glossary.md`, or `decisions/` when the change needs them.
-5. Open a pull request (PR) that contains only spec changes. Do not mix implementation into the same PR.
+5. Open a pull request (PR) that contains only spec changes. Do not add implementation before approval.
 6. Request review against the checklist below.
-7. Apply the `spec:approved` label when the review passes. A spec PR without this label is not a build target.
-8. Merge the spec PR before implementation starts.
-9. Build the implementation against the merged spec. The implementation PR must link the spec PR.
-10. When the behavior ships, change each marker to `[DONE: TICKET-XXXX]`.
-11. If reality must differ from the spec, change the spec first. Do not merge behavior that the spec does not describe.
-12. Remove done markers in a later cleanup pass.
+7. A human reviews the spec and applies the `spec:approved` label when the review passes. A spec PR without this label is not a build target.
+8. Add the implementation as a second commit on the same PR. Do not open a separate implementation PR.
+9. When the behavior ships, change each marker to `[DONE: TICKET-XXXX]`.
+10. If reality must differ from the spec, change the spec first. Do not merge behavior that the spec does not describe.
+11. Remove done markers in a later cleanup pass.
 
 ### Labels
 

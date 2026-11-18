@@ -5,7 +5,7 @@ description: Open a spec-only pull request for pi-share-history. Use when adding
 
 # Spec PR
 
-Follow the Spec Workflow in `.ai/spec/README.md`. A spec PR contains spec text only. It does not contain implementation code.
+Follow the Spec Workflow in `.ai/spec/README.md`. A spec PR starts with spec text only. It does not contain implementation code before approval. After a human applies `spec:approved`, add the implementation as a second commit on the same PR. Use the `spec-implement` skill for that step.
 
 ## Read first
 
@@ -72,7 +72,7 @@ for(const sent of s.split(/(?<=[.!?])\s+/)){const w=sent.split(/\s+/).filter(Boo
 6. Start the title with `Spec:`.
 7. Put these sections in the PR body: Summary, Issues covered, Behavior changes, Ambiguity choices, Files, Test plan.
 8. Set the test plan to `Spec review only`.
-9. Stop. Do not merge. Do not apply `spec:approved`; a human applies it after approval. Do not add `ready-to-merge` and do not enable auto-merge: auto-merge is for implementation PRs only.
+9. Stop. Do not merge. Do not apply `spec:approved`; a human applies it after approval. Do not add `ready-to-merge` while the PR holds spec text only. Implementation continues on the same PR after approval.
 10. Report the PR URL and the rule numbers that you added.
 
 ## Review checklist

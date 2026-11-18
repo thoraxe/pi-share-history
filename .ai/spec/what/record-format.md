@@ -7,8 +7,8 @@ A record is one published unit of transcript: a message, a tool execution, a not
 ### Record shape
 
 1. Every record MUST have `id` (string, <= 200 chars), `kind` (string), and `timestamp`.
-2. A record MAY include `model`, `label`, `text`, `error`, `errorMessage`, `status`, and `parent`.
-3. `text` MUST be truncated to 24,000 characters and append `\n[truncated by pi-share-history]` when truncation occurs.
+2. A record MAY include `model`, `label`, `text`, `thinking`, `error`, `errorMessage`, `status`, and `parent`.
+3. `text` and `thinking` MUST be truncated to 24,000 characters and append `\n[truncated by pi-share-history]` when truncation occurs.
 4. Record ids MUST be stable across retries so the same logical record upserts rather than duplicates.
 
 ### Identity conventions
@@ -21,9 +21,10 @@ A record is one published unit of transcript: a message, a tool execution, a not
 ### Allowlist and omissions
 
 9. The extension MUST only emit records for these roles: `user`, `assistant`, `toolResult`, `bashExecution`, `custom`, `branchSummary`, and `compactionSummary`. It MUST drop `system` messages.
-10. System prompts, model thinking blocks, image data, provider signatures, raw provider events, and arbitrary tool-result metadata MUST NOT be uploaded.
+10. System prompts, image data, provider signatures, raw provider events, and arbitrary tool-result metadata MUST NOT be uploaded.
 10a. The extension MUST NOT place a tool call's name or arguments in an `assistant` record's `text`. Each tool call MUST publish as its own `tool` record. [DONE: #23]
-11. Image content blocks MUST become `[image omitted]`. Thinking blocks MUST become `[thinking omitted]`. Other unknown block types MUST become `[<type> block omitted]`.
+10b. A model thinking block MUST upload only in the record's `thinking` field. The extension MUST NOT upload a thinking signature. [DONE: #27]
+11. Image content blocks MUST become `[image omitted]`. Thinking blocks MUST NOT add text to `text` and MUST populate `thinking`. Other unknown block types MUST become `[<type> block omitted]`. [DONE: #27]
 12. `bashExecution` records MUST contain the command prefixed with `$ ` and the command output.
 12a. A `tool` record's `text` MUST contain the tool arguments and then the tool result. [DONE: #23]
 

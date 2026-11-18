@@ -19,15 +19,21 @@ export function content(value) {
     if (block.type === 'toolCall') return [];
     if (block.type === 'text') return [String(block.text ?? '')];
     if (block.type === 'image') return ['[image omitted]'];
-    if (block.type === 'thinking') return ['[thinking omitted]'];
+    // Thinking publishes in its own field, so it adds no message text.
+    if (block.type === 'thinking') return [];
     return [`[${block.type || 'unknown'} block omitted]`];
   }));
+}
+// Rule 10b: a thinking block publishes only its text. A signature never leaves the publisher.
+function thinking(value) {
+  if (!Array.isArray(value)) return '';
+  return joined(value.flatMap(block => block.type === 'thinking' ? [String(block.thinking ?? block.text ?? '')] : []));
 }
 export function messageRecord(message) {
   if (!message || message.role === 'system') return null;
   const role = message.role;
   if (!['user', 'assistant', 'toolResult', 'bashExecution', 'custom', 'branchSummary', 'compactionSummary'].includes(role)) return null;
-  return {
+  const record = {
     id: role === 'toolResult' ? `result:${message.toolCallId}` : `message:${role}:${message.timestamp}`,
     kind: role, timestamp: message.timestamp, model: message.model,
     label: message.toolName || message.customType || role,
@@ -35,6 +41,9 @@ export function messageRecord(message) {
     error: Boolean(message.isError || message.errorMessage),
     errorMessage: message.errorMessage ? text(message.errorMessage) : undefined,
   };
+  const reasoning = role === 'assistant' ? thinking(message.content) : '';
+  if (reasoning) record.thinking = reasoning;
+  return record;
 }
 export function toolRecord(event) {
   return {

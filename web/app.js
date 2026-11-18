@@ -172,6 +172,7 @@ function applyView() {
     const node = nodes.get(unit.key);
     if (!node) continue;
     if (unit.records) node.querySelector('details').hidden = !advanced;
+    else updateThinking(node, unit.record, advanced);
     node.hidden = !unitVisible(unit) || !contentText(node).toLowerCase().includes(query);
   }
 }
@@ -225,6 +226,24 @@ window.addEventListener('scroll', () => {
   // Rule 7u: the bottom is where every record is visible, so the count restarts there.
   if (follow && arrivedRecords.size) resetActivity();
 }, { passive: true });
+function createThinkingNode() {
+  const details = document.createElement('details');
+  details.className = 'thinking';
+  details.hidden = true;
+  const summary = document.createElement('summary');
+  summary.textContent = 'Thinking';
+  const plain = document.createElement('pre');
+  details.append(summary, plain);
+  return details;
+}
+// Rule 7b2: Read mode hides thinking. Advanced mode shows it with the record and starts it collapsed.
+function updateThinking(node, record, shown) {
+  const details = node.querySelector('.thinking');
+  if (!details) return;
+  const value = typeof record.thinking === 'string' ? record.thinking : '';
+  details.hidden = !shown || !value;
+  setText(details.querySelector('pre'), value);
+}
 function createRecordNode() {
   const node = document.createElement('article');
   node.className = 'record';
@@ -239,7 +258,7 @@ function createRecordNode() {
   formatted.className = 'markdown-content'; formatted.hidden = true;
   const meta = document.createElement('p');
   meta.className = 'meta';
-  node.append(role, label, plain, formatted, meta);
+  node.append(role, label, plain, formatted, createThinkingNode(), meta);
   return node;
 }
 function updateRecordNode(node, record) {
@@ -259,6 +278,7 @@ function updateRecordNode(node, record) {
     setText(label, named);
   }
   setText(node.querySelector('.meta'), metadataText(record));
+  updateThinking(node, record, advanced);
   renderBody(node, record);
 }
 function createGroupNode() {

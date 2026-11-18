@@ -18,6 +18,12 @@ The service exposes a small JSON API, an SSE stream, and static browser assets u
 7. Every other write (`POST .../records`, `.../draft`, `.../stop`, `.../revoke`, `DELETE .../<id>`) MUST authenticate with that share's owner key.
 8. Key comparison MUST be constant-time with respect to the secret (hash then timing-safe compare).
 9. Reads (`GET /health`, `GET /api/shares`, `GET /api/shares/<id>`, `GET .../events`, static assets) MUST NOT require authentication.
+9a. When `TRUST_PROXY_AUTH` is on, the service MUST read the viewer identity from `PROXY_AUTH_HEADER` and MUST attach it to the request. [PLANNED: #37]
+9b. When `TRUST_PROXY_AUTH` is off, the service MUST ignore `PROXY_AUTH_HEADER`. A client MUST NOT be able to assert an identity. [PLANNED: #37]
+9c. A read MUST NOT require an identity. Only the vote route MUST require one. [PLANNED: #37]
+9d. The `ADMIN_KEY` MUST satisfy the owner check on every share. The admin key MUST be hashed and compared in constant time, the same way as an owner key. [PLANNED: #34]
+9e. When `ADMIN_KEY` is unset, the admin routes MUST return `404` and no admin comparison MUST occur. [PLANNED: #34]
+9f. The ballot vote route MUST use a viewer identity instead of a Bearer token. Rule 5 does not apply to it. [PLANNED: #38]
 
 ### Endpoints
 
@@ -27,7 +33,8 @@ The service exposes a small JSON API, an SSE stream, and static browser assets u
 11b. The service MUST compute `count` in the same query that reads the shares. The service MUST NOT run one query for each share. [DONE: #9]
 11c. `GET /api/shares` MUST list live shares before saved transcripts. Within each group, the service MUST order shares by `updated` descending. [DONE: #9]
 12. `POST /api/shares` MUST accept `{"title": string}` (`title` length <= 200), create a share, and return `201` with `{id, ownerKey, url}` where `url` is `<PUBLIC_URL>/s/<id>`.
-13. `GET /api/shares/<id>` MUST return `{id, title, updated, live, draft, records}`. The `records` field holds full record objects in insertion order. The `draft` field holds the public draft or `null`.
+13. `GET /api/shares/<id>` MUST return `{id, title, updated, live, draft, ballot, records}`. The `records` field holds full record objects in insertion order. The `draft` field holds the public draft or `null`.
+13a. The `ballot` field MUST hold the public ballot or `null`. The public ballot shapes are in `votes.md` rules 16 and 20. [PLANNED: #38]
 14. `GET /api/shares/<id>/events` MUST open an SSE stream with an initial `update` event. It MUST send `update` on every change, a keepalive `update` at least every 10 seconds, and `removed` when the share is revoked or deleted.
 15. `POST /api/shares/<id>/records` MUST accept `{records: Record[], live: boolean, draft?: Draft}` and MUST upsert records idempotently by `id`.
 16. `POST /api/shares/<id>/stop` MUST clear the live flag and clear any current draft text.
@@ -35,6 +42,7 @@ The service exposes a small JSON API, an SSE stream, and static browser assets u
 18. `DELETE /api/shares/<id>` MUST delete the share and cascade to its records, drop its draft, notify viewers with `removed`, and close their streams.
 19. `POST /api/shares/<id>/draft` MUST accept a draft and return `409` unless the share is live and updated within the last 20 seconds.
 20. Static routes `/`, `/s/<id>`, `/app.js`, `/theme.js`, `/markdown.js`, `/style.css`, and `/vendor/*` MUST serve the bundled browser client. The route `/s/<id>` MUST serve the same HTML shell as `/`.
+20a. The static route `/admin/` MUST serve the admin page shell and `/admin.js` MUST serve its script. [PLANNED: #36]
 
 ### Limits and errors
 
@@ -48,11 +56,30 @@ The service exposes a small JSON API, an SSE stream, and static browser assets u
 28. The service MUST enforce a 15-second request timeout and a 10-second header timeout.
 29. An SSE client whose unsent buffer exceeds 64 KiB MUST be disconnected.
 
+### Admin routes
+
+30. `GET /api/admin/shares` MUST return every share, including revoked shares, ordered by `updated` descending. Each item MUST hold `id`, `title`, `created`, `updated`, `live`, and `revoked`. The route MUST require the admin key. [PLANNED: #35]
+31. `DELETE /api/admin/shares/<id>` MUST behave like the owner delete in rule 18. The route MUST require the admin key. An unknown id MUST return `404`. [PLANNED: #35]
+32. The admin page MUST send the admin key in the URL fragment and MUST strip the fragment after the first load. The page MUST send the key as a Bearer token and MUST NOT store it in a cookie or in `localStorage`. [PLANNED: #36]
+
+### Ballot routes
+
+33. `POST /api/shares/<id>/ballot` MUST accept `{options: string[], anchor: string}` and MUST return `201` with the ballot. The route MUST require the owner key or the admin key. It MUST return `409` when the share already has an open ballot. [PLANNED: #38]
+34. `POST /api/shares/<id>/ballot/vote` MUST accept `{choice: integer}` and MUST return `201`. The route MUST require a viewer identity. It MUST return `401` without an identity and `409` on a duplicate vote or a revealed ballot. [PLANNED: #38]
+35. `POST /api/shares/<id>/ballot/reveal` MUST lock the ballot and MUST return the revealed ballot. The route MUST require the owner key or the admin key, MUST be idempotent, and MUST return `404` when no ballot exists. [PLANNED: #38]
+36. `DELETE /api/shares/<id>/ballot` MUST delete the open ballot and its votes and MUST return `204`. The route MUST require the owner key or the admin key and MUST return `404` when no ballot exists. [PLANNED: #38]
+37. Every ballot route MUST send an `update` event on the share stream after the database change is committed. [PLANNED: #38]
+38. The vote route MUST NOT accept a Bearer credential as an identity. It MUST read the identity from `PROXY_AUTH_HEADER` only. [PLANNED: #38]
+
+
 ## Configuration Surface
 
 - `PUBLIC_URL.pathname` — route prefix. It must match `^(\/[A-Za-z0-9_-]+)+$` or be empty.
 - 8-second draft TTL, configurable through the service factory for tests.
 - `UPLOAD_KEY` — upload key. The length must be at least 24 characters.
+- `ADMIN_KEY` — operator secret, optional. The length must be at least 24 characters when set.
+- `TRUST_PROXY_AUTH` — enables the trusted identity header. Default off.
+- `PROXY_AUTH_HEADER` — identity header name. Default `X-Auth-Request-Email`.
 
 ## Constraints
 
@@ -64,4 +91,5 @@ The service exposes a small JSON API, an SSE stream, and static browser assets u
 
 | Ticket | Summary |
 |---|---|
-| — | No planned changes recorded. |
+| #41 | Operator admin surface: `ADMIN_KEY`, share list, delete. |
+| #42 | Blind ballots: vote with a proxy identity, reveal with the owner key. |

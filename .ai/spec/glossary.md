@@ -29,3 +29,11 @@
 | **Tool group** | One disclosure row for consecutive `tool`, `toolResult`, and `bashExecution` records between two messages. |
 | **Publisher** | A Pi user who runs the extension against the service. |
 | **Viewer** | A browser that reads the directory or a transcript. It needs no authentication. |
+| **Admin key** | The operator secret `ADMIN_KEY`. It authorizes every owner action on every share. |
+| **Admin page** | The operator surface at `<prefix>/admin/`. It lists every share and deletes one. |
+| **Trusted proxy identity** | The viewer identity that the service reads from `PROXY_AUTH_HEADER` when `TRUST_PROXY_AUTH` is on. |
+| **Voter** | A viewer with a trusted proxy identity. A voter casts at most one vote on a ballot. |
+| **Ballot** | One vote question on one share, anchored to one record, with 2 to 8 options. |
+| **Blind ballot** | A ballot whose tally stays hidden until the reveal. |
+| **Turnout** | The number of votes that a ballot holds. |
+| **Reveal** | The owner action that locks a ballot and makes the tally and the voter choices public. |

@@ -14,6 +14,8 @@ The publisher drives every state transition from inside Pi through a command. Th
 6. `revoke` and `delete` MUST require confirmation and MUST affect only the hosted copy, not local Pi history.
 7. A bare command with no arguments MUST behave as `status`.
 8. An unknown action MUST produce a usage error rather than a side effect.
+8a. `/share vote` MUST open, inspect, reveal, or cancel a ballot as `votes.md` describes. [PLANNED: #39]
+8b. `/share vote` MUST require the saved owner entry or the admin key, MUST require confirmation for open, reveal, and cancel, and MUST refuse an unknown sub-action. [PLANNED: #39]
 
 ### Owner state
 
@@ -52,4 +54,4 @@ The publisher drives every state transition from inside Pi through a command. Th
 
 | Ticket | Summary |
 |---|---|
-| — | No planned changes recorded. |
+| #39 | Add `/share vote` commands to open, inspect, reveal, and cancel a ballot on the current share. |

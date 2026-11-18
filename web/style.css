@@ -197,6 +197,13 @@ button { cursor: pointer; }
 #theme-toggle { margin-inline-start: auto; }
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
 
+/* Rules 24g-24l: each turn carries a copy-link action and a short note next to it. */
+.turn-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: .75rem; }
+.turn-actions .copy-link { padding: .15rem .45rem; font-size: .8rem; }
+.turn-actions .copy-note { color: var(--muted); font-size: .8rem; }
+/* Rules 24c and 24e: the target highlight is an outline, so it never changes the document layout. */
+.deep-link-target { outline: 3px solid var(--focus); outline-offset: 2px; }
+
 /* Rules 7ac and 7v: the pill is out of flow at the bottom of the viewport, so a show or a hide moves nothing. */
 #activity {
   position: fixed;

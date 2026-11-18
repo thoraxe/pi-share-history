@@ -6,6 +6,19 @@ const nodes = new Map();
 const directoryRows = new Map();
 const groupSteps = new WeakMap();
 let follow = true, busy = false, again = false, stream, draftExpiry, currentUnits = null;
+// Rules 24a-24f: a fragment names a record. The target is resolved after the transcript renders, so the
+// viewer does not depend on the record order. A fragment also means that the reader chose a record, so
+// follow-live stays off and cannot scroll the page away from the target (rules 24d and 24f).
+const linkedTargetId = (() => {
+  const fragment = (location.hash || '').slice(1);
+  try { return decodeURIComponent(fragment); } catch { return fragment; }
+})();
+if (linkedTargetId) follow = false;
+// The fragment is resolved one time, after the first payload paints the transcript.
+let targetHandled = false;
+// Rule 24d: while a deep-link target is the place the reader chose, a live refresh must not scroll
+// away from it. The follow controls clear the pin when the reader asks to follow live again.
+let pinnedTarget = false;
 // Rule 7w counts records, so the viewer remembers every record it has already shown, and the ids of the
 // records that arrived since the reader last reached the bottom. The ids, not a number, are kept, so a
 // mode change recomputes the pill count through the visibility rules of the new mode.
@@ -123,7 +136,9 @@ function renderDraft(draft) {
 const hasText = record => typeof record.text === 'string' && record.text.trim() !== '';
 // Rule 7b1 keeps an empty record out of Read mode, so a turn that only called a tool leaves no
 // blank card. Advanced mode still shows every record.
-const recordVisible = record => advanced || isError(record) || (readKinds.has(record.kind) && hasText(record));
+// Rules 7b3 and 7b4: a deep-link target shows in Read mode even when the hiding rules would drop it.
+const isLinkedTarget = record => Boolean(linkedTargetId) && record.id === linkedTargetId;
+const recordVisible = record => advanced || isLinkedTarget(record) || isError(record) || (readKinds.has(record.kind) && hasText(record));
 const unitVisible = unit => unit.records ? unit.records.some(recordVisible) : recordVisible(unit.record);
 // Rule 4 filters on visible text, so a hidden element and a closed disclosure contribute nothing.
 // Read mode also keeps the metadata chip out of the match, because it is hidden at rest.
@@ -171,8 +186,10 @@ function applyView() {
   for (const unit of currentUnits) {
     const node = nodes.get(unit.key);
     if (!node) continue;
-    if (unit.records) node.querySelector('details').hidden = !advanced;
-    else updateThinking(node, unit.record, advanced);
+    if (unit.records) {
+      // Rule 7b4: Read mode shows the row that holds a deep-link target. The other rows stay hidden.
+      node.querySelector('details').hidden = !advanced && !unit.records.some(isLinkedTarget);
+    } else updateThinking(node, unit.record, advanced);
     node.hidden = !unitVisible(unit) || !contentText(node).toLowerCase().includes(query);
   }
 }
@@ -212,12 +229,15 @@ function resetActivity() {
 // Rules 7 and 7y: one activation scrolls to the newest record and resumes follow-live.
 function followLive() {
   follow = true;
+  pinnedTarget = false;
   arrivedRecords.clear();
   $('follow').textContent = 'Following live';
   renderActivity();
   window.scrollTo(0, document.body.scrollHeight);
 }
 $('follow').hidden = !id;
+// A fragment turns follow-live off before the first paint, so the button states the current mode.
+$('follow').textContent = follow ? 'Following live' : 'Follow live';
 $('follow').onclick = followLive;
 $('activity')?.addEventListener('click', followLive);
 window.addEventListener('scroll', () => {
@@ -244,7 +264,37 @@ function updateThinking(node, record, shown) {
   details.hidden = !shown || !value;
   setText(details.querySelector('pre'), value);
 }
-function createRecordNode() {
+// Rules 24g-24l: each turn carries one copy-link action. The action is a native button with an
+// accessible name, and a short note next to it reports success or failure. The transcript stays usable
+// when the clipboard is unavailable.
+function createTurnActions(recordId) {
+  const box = document.createElement('div');
+  box.className = 'turn-actions';
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'copy-link';
+  button.textContent = 'Copy link';
+  button.setAttribute('aria-label', 'Copy link to this turn');
+  const note = document.createElement('span');
+  note.className = 'copy-note';
+  const timers = new WeakMap();
+  button.addEventListener('click', async () => {
+    // Rule 24h copies the absolute URL and ends it with the record fragment.
+    const link = `${location.origin}${location.pathname}#${recordId}`;
+    let message = 'Link copied';
+    try {
+      await navigator.clipboard.writeText(link);
+    } catch {
+      message = 'Copy failed';
+    }
+    setText(note, message);
+    clearTimeout(timers.get(note));
+    timers.set(note, setTimeout(() => setText(note, ''), 2000));
+  });
+  box.append(button, note);
+  return box;
+}
+function createRecordNode(recordId) {
   const node = document.createElement('article');
   node.className = 'record';
   // Keyboard focus reveals the metadata. It also has to survive a refresh, so renderTranscript never re-appends.
@@ -258,10 +308,12 @@ function createRecordNode() {
   formatted.className = 'markdown-content'; formatted.hidden = true;
   const meta = document.createElement('p');
   meta.className = 'meta';
-  node.append(role, label, plain, formatted, createThinkingNode(), meta);
+  node.append(role, label, plain, formatted, createThinkingNode(), meta, createTurnActions(recordId));
   return node;
 }
 function updateRecordNode(node, record) {
+  // Rule 7j1: a message element uses its record id as the element id.
+  node.id = record.id;
   node.dataset.kind = record.kind;
   if (record.error) node.dataset.error = 'true'; else delete node.dataset.error;
   const role = node.querySelector('.role');
@@ -281,9 +333,10 @@ function updateRecordNode(node, record) {
   updateThinking(node, record, advanced);
   renderBody(node, record);
 }
-function createGroupNode() {
+function createGroupNode(recordId) {
   const node = document.createElement('article');
   node.className = 'tool-group';
+  // Rule 7j2: the group row never takes a record id, because each step carries its own record id.
   // Read mode renders a failed group with its row closed, so the group must carry the metadata chip
   // and the keyboard focus itself. It also has to survive a refresh, so renderTranscript never re-appends.
   node.tabIndex = 0;
@@ -298,7 +351,7 @@ function createGroupNode() {
   failure.className = 'tool-failure'; failure.hidden = true;
   const meta = document.createElement('p');
   meta.className = 'meta'; meta.hidden = true;
-  node.append(details, failure, meta);
+  node.append(details, failure, meta, createTurnActions(recordId));
   return node;
 }
 function createStepNode() {
@@ -342,6 +395,8 @@ function updateGroupNode(node, records) {
     let step = steps.get(record.id);
     const created = !step;
     if (created) { step = createStepNode(); steps.set(record.id, step); }
+    // Rule 7j1: a tool step uses its record id as the element id, so a deep link reaches it.
+    step.id = record.id;
     step.dataset.kind = record.kind;
     if (record.error) step.dataset.error = 'true'; else delete step.dataset.error;
     setText(step.querySelector('.tool-step-label'), `${toolName(record)}${stepStatus(record)}`);
@@ -405,7 +460,8 @@ function renderTranscript(data) {
     let node = nodes.get(unit.key);
     const created = !node;
     if (created) {
-      node = unit.records ? createGroupNode() : createRecordNode();
+      // Rule 24i: the copy-link action of a group copies the record id of its first record.
+      node = unit.records ? createGroupNode(unit.records[0].id) : createRecordNode(unit.record.id);
       nodes.set(unit.key, node);
     }
     if (unit.records) updateGroupNode(node, unit.records);
@@ -421,6 +477,24 @@ function renderTranscript(data) {
     nodes.delete(key);
   }
   noteArrivals(currentUnits);
+}
+// Rules 24b-24f: resolve the fragment to the element with that id. A valid target scrolls into view,
+// opens a containing tool group, turns follow-live off, and highlights for 2 seconds. An unknown target
+// leaves the page at the top and reports no error.
+function revealTarget() {
+  if (!linkedTargetId || targetHandled) return;
+  targetHandled = true;
+  const container = $('records');
+  const element = [...container.querySelectorAll('[id]')].find(node => node.id === linkedTargetId);
+  if (!element) return;
+  follow = false;
+  pinnedTarget = true;
+  $('follow').textContent = 'Follow live';
+  const row = element.closest?.('details.tool-row');
+  if (row) row.open = true;
+  element.scrollIntoView?.({ block: 'center' });
+  element.classList.add('deep-link-target');
+  setTimeout(() => element.classList.remove('deep-link-target'), 2000);
 }
 // Rules 2a-2d: each row shows a record count and a relative time at rest, keeps the absolute timestamp
 // in the accessibility tree, and stays in the order that the API returns. Row nodes are reused and moved
@@ -503,7 +577,9 @@ async function refresh() {
       renderTranscript(data);
     }
     applyView();
-    if (id && follow) window.scrollTo(0, document.body.scrollHeight);
+    // Rules 24b-24f: the fragment resolves against the rendered transcript, after the view mode moves.
+    revealTarget();
+    if (id && follow && !pinnedTarget) window.scrollTo(0, document.body.scrollHeight);
   } catch (error) {
     renderDraft(null);
     // A closed stream cannot reconnect, so the message must not promise it.

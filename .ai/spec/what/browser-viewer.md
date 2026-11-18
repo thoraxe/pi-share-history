@@ -110,6 +110,10 @@ The viewer is a static single-page client served by the service. It has two page
 24k. If the clipboard write fails, the viewer MUST show a short failure message. The viewer MUST keep the transcript and the controls usable. [DONE: #8]
 24l. The copy-link action MUST be reachable and operable with the keyboard. It MUST carry an accessible name. [DONE: #8]
 
+### Ballots
+
+25. The viewer MUST render an open or revealed ballot as `votes.md` rules 33 to 43 describe. [PLANNED: #40]
+
 ## Configuration Surface
 
 - `data-base-path` on `<html>` — service-injected route prefix used by all client URLs.
@@ -120,7 +124,7 @@ The viewer is a static single-page client served by the service. It has two page
 
 ## Constraints
 
-- The viewer is read-only: no editing, deleting, or publishing controls exist in the browser.
+- The viewer is read-only except for one ballot vote. It has no editing, deleting, or publishing controls. [PLANNED: #40]
 - It must work with JavaScript from the service only, under a strict CSP that forbids inline script and style.
 - Manual browser and network verification is required for interaction and deployment changes. Unit tests cover rendering logic only.
 
@@ -128,4 +132,4 @@ The viewer is a static single-page client served by the service. It has two page
 
 | Ticket | Summary |
 |---|---|
-| — | No planned changes recorded. |
+| #40 | Render a blind ballot at its anchor turn, with turnout while open and tallies after reveal. |

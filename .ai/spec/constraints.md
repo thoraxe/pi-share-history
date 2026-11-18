@@ -2,7 +2,7 @@
 
 Rules that span multiple components and do not belong to any single what/ file.
 
-1. **Publication is public.** Everything published is readable by anyone who can reach the service. No component may imply confidentiality, per-viewer access control, or end-to-end encryption.
+1. **Publication is public.** Everything published is readable by anyone who can reach the service. No component may imply confidentiality, per-viewer access control, or end-to-end encryption. A blind ballot is the only exception. The service hides its tally until the reveal, and the database still holds it. [PLANNED: #42]
 2. **No automatic secret redaction.** Neither the extension nor the service scans content for credentials. The only protection is the upload allowlist and the confirmation prompts.
 3. **Keys are bearer secrets.** Treat the team upload key and each share's owner key as credentials. Never log them. Never publish them. Never send owner credentials to a different origin.
 4. **HTTPS outside loopback.** The extension must refuse plain HTTP except on localhost. Deployment templates must terminate TLS at the reverse proxy.

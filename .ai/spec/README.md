@@ -6,7 +6,7 @@ Pi share history is a Pi extension plus a small self-hosted service that publish
 
 | Layer | Path | Purpose |
 |---|---|---|
-| **what/** | `.ai/spec/what/` | System contracts: HTTP API, record format, share lifecycle, draft contract, viewer behavior, configuration surface. |
+| **what/** | `.ai/spec/what/` | System contracts: HTTP API, record format, share lifecycle, draft contract, ballot contract, viewer behavior, configuration surface. |
 | **how/** | `.ai/spec/how/` | Codebase map: service routing and persistence, extension sync loop, browser client, testing and deployment. |
 
 ## Scope
@@ -26,6 +26,7 @@ AI agents. Content is written for precision and machine consumption.
 | Change record capture or privacy filtering | `what/record-format.md` |
 | Change share start/stop/revoke/delete behavior | `what/share-lifecycle.md` |
 | Work on the ephemeral draft feature | `what/drafts.md` |
+| Change ballot, vote, or reveal behavior | `what/votes.md` |
 | Change the browser viewer, theme, or Markdown rendering | `what/browser-viewer.md` |
 | Find where service code lives and why | `how/server.md` |
 | Find where extension sync code lives | `how/extension-sync.md` |
@@ -41,6 +42,7 @@ AI agents. Content is written for precision and machine consumption.
 | `what/record-format.md` | `how/extension-sync.md`, `how/server.md` |
 | `what/share-lifecycle.md` | `how/extension-sync.md` |
 | `what/drafts.md` | `how/extension-sync.md`, `how/browser-client.md` |
+| `what/votes.md` | `how/server.md`, `how/extension-sync.md`, `how/browser-client.md` |
 | `what/browser-viewer.md` | `how/browser-client.md` |
 | `what/constraints.md` | `how/testing-and-deployment.md` |
 

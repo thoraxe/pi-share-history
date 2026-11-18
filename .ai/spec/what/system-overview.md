@@ -11,7 +11,7 @@ Pi share history has two parts: a Pi extension that captures and uploads session
 3. The team upload key MUST NOT be able to modify, revoke, or delete a share created with a different owner key.
 4. The system MUST NOT do automatic secret redaction. It provides none. The upload allowlist and truncation are the only limits on published content.
 5. Transport MUST be HTTPS for any non-localhost deployment. The extension accepts plain HTTP only for `localhost`, `127.0.0.1`, and `[::1]`.
-6. The browser viewer MUST NOT require credentials and MUST be read-only.
+6. The browser viewer MUST NOT require credentials to read a share. Its only write MUST be a ballot vote. A ballot vote MUST require a viewer identity. [PLANNED: #42]
 
 ### Component inventory
 
@@ -59,3 +59,4 @@ Extension environment:
 | Ticket | Summary |
 |---|---|
 | #37 | Viewer identity from the authenticated proxy header. |
+| #42 | Blind ballots: vote with a proxy identity, reveal with the owner key. |

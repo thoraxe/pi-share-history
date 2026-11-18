@@ -9,9 +9,11 @@ let follow = true, busy = false, again = false, stream, draftExpiry, currentUnit
 // Rules 24a-24f: a fragment names a record. The target is resolved after the transcript renders, so the
 // viewer does not depend on the record order. A fragment also means that the reader chose a record, so
 // follow-live stays off and cannot scroll the page away from the target (rules 24d and 24f).
-const linkedTargetId = (() => {
-  const fragment = (location.hash || '').slice(1);
-  try { return decodeURIComponent(fragment); } catch { return fragment; }
+// The copied link carries the raw record id, so a raw match comes first. A hand-encoded fragment still
+// resolves, because its decoded form is the second candidate.
+const linkedTargetId = (location.hash || '').slice(1);
+const decodedTargetId = (() => {
+  try { return decodeURIComponent(linkedTargetId); } catch { return linkedTargetId; }
 })();
 if (linkedTargetId) follow = false;
 // The fragment is resolved one time, after the first payload paints the transcript.
@@ -137,7 +139,7 @@ const hasText = record => typeof record.text === 'string' && record.text.trim() 
 // Rule 7b1 keeps an empty record out of Read mode, so a turn that only called a tool leaves no
 // blank card. Advanced mode still shows every record.
 // Rules 7b3 and 7b4: a deep-link target shows in Read mode even when the hiding rules would drop it.
-const isLinkedTarget = record => Boolean(linkedTargetId) && record.id === linkedTargetId;
+const isLinkedTarget = record => Boolean(linkedTargetId) && (record.id === linkedTargetId || record.id === decodedTargetId);
 const recordVisible = record => advanced || isLinkedTarget(record) || isError(record) || (readKinds.has(record.kind) && hasText(record));
 const unitVisible = unit => unit.records ? unit.records.some(recordVisible) : recordVisible(unit.record);
 // Rule 4 filters on visible text, so a hidden element and a closed disclosure contribute nothing.
@@ -242,7 +244,8 @@ $('follow').onclick = followLive;
 $('activity')?.addEventListener('click', followLive);
 window.addEventListener('scroll', () => {
   follow = window.innerHeight + window.scrollY >= document.body.scrollHeight - 100;
-  $('follow').textContent = follow ? 'Following live' : 'Follow live';
+  // Rule 24d keeps the page on the target, so the control must not claim that it follows live.
+  $('follow').textContent = follow && !pinnedTarget ? 'Following live' : 'Follow live';
   // Rule 7u: the bottom is where every record is visible, so the count restarts there.
   if (follow && arrivedRecords.size) resetActivity();
 }, { passive: true });
@@ -485,7 +488,7 @@ function revealTarget() {
   if (!linkedTargetId || targetHandled) return;
   targetHandled = true;
   const container = $('records');
-  const element = [...container.querySelectorAll('[id]')].find(node => node.id === linkedTargetId);
+  const element = [...container.querySelectorAll('[id]')].find(node => node.id === linkedTargetId || node.id === decodedTargetId);
   if (!element) return;
   follow = false;
   pinnedTarget = true;

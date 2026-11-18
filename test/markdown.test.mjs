@@ -1266,7 +1266,8 @@ test('a deep link opens its tool group, turns follow-live off, and highlights fo
     // 24d: a live refresh does not scroll away from the target and keeps the group open. The pin holds
     // even when the target sits at the bottom and a scroll would otherwise turn follow-live on.
     atBottom(window);
-    assert.equal(document.getElementById('follow').textContent, 'Following live');
+    // The control must not claim to follow while the pin keeps the page on the target.
+    assert.equal(document.getElementById('follow').textContent, 'Follow live');
     await ui.update([...records, rec('a2', 'assistant', { text: 'later', timestamp: 6 })]);
     assert.equal(ui.scrolls, 0);
     assert.equal(row.open, true);
@@ -1275,6 +1276,23 @@ test('a deep link opens its tool group, turns follow-live off, and highlights fo
     // 7y: the follow control is how the reader resumes live scrolling after a deep link.
     document.getElementById('follow').click();
     assert.ok(ui.scrolls > 0);
+    assert.equal(document.getElementById('follow').textContent, 'Following live');
+  } finally { ui.dom.window.close(); }
+});
+
+test('a record id with a percent escape round-trips through the fragment and the copy link (24b, 24h)', async () => {
+  const targetId = 'entry:a%41b';
+  const ui = await modeViewer({ hash: targetId, records: [
+    rec('a0', 'assistant', { text: 'start', timestamp: 0 }),
+    rec(targetId, 'assistant', { text: 'target', timestamp: 1 }),
+  ] });
+  try {
+    const { window } = ui, target = window.document.getElementById(targetId);
+    assert.ok(target);
+    assert.deepEqual(ui.scrolled, [target]);                  // 24b: the raw id matches before any decode.
+    target.querySelector('.copy-link').click();
+    await tick();
+    assert.equal(ui.copied[0], `${ui.sharePath}#${targetId}`); // 24h: the link keeps the raw record id.
   } finally { ui.dom.window.close(); }
 });
 

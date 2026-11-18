@@ -128,4 +128,4 @@ The viewer is a static single-page client served by the service. It has two page
 
 | Ticket | Summary |
 |---|---|
-| #8 | Add record anchors, deep links, and a per-turn copy-link action. |
+| — | No planned changes recorded. |

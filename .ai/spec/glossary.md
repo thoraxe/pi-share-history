@@ -19,6 +19,9 @@
 | **Draft** | A preview of unsent editor text. It lives only in memory and is never persisted. |
 | **Base path** | The path portion of `PUBLIC_URL` (for example `/pi-history`). All routes live under it. Also called the prefix. |
 | **Record kind** | The role label of a record, such as `user`, `assistant`, `tool`, `toolResult`, `notice`, or `compaction`. |
+| **Turn** | One unit of a transcript. It is one message record, or one tool group between two messages. |
+| **Deep link** | A transcript URL with a `#<record-id>` fragment. On load, the viewer moves to that record. |
+| **Copy-link action** | A per-turn control. It copies the deep link to that turn. |
 | **Read mode** | The default transcript view. It shows prompts, replies, errors, and notices. It hides tool activity, summaries, and metadata at rest. |
 | **Advanced mode** | The optional transcript view. It shows every record, including tool activity, summaries, thinking, and metadata. |
 | **Thinking** | A model reasoning block. Pi records it with the assistant message. The extension publishes it in the record's `thinking` field. Read mode hides it and Advanced mode shows it. |

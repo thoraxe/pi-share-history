@@ -259,7 +259,7 @@ export default async function (pi: ExtensionAPI) {
           status(); context.ui.notify(`Share ${action === 'delete' ? 'deleted' : 'revoked; use /pishare delete to remove stored data'}.`, 'info'); return;
         }
         if (action !== 'start' && action !== 'upload') throw new Error('Usage: /pishare start|upload|stop|status|revoke|delete|drafts on|off');
-        if (!await context.ui.confirm('Publish current session publicly?', 'The current branch, prompts, source code and tool output will be readable by anyone on the internet. There is no automatic secret redaction. System prompts, thinking, images and internal metadata are omitted. Previously published history is retained.')) return;
+        if (!await context.ui.confirm('Publish current session publicly?', 'The current branch, prompts, model thinking, source code and tool output will be readable by anyone on the internet. There is no automatic secret redaction. System prompts, thinking signatures, images and internal metadata are omitted. Previously published history is retained.')) return;
         if (!share) {
           const key = process.env.PI_SHARE_KEY;
           if (!key) throw new Error('Set PI_SHARE_KEY to the team upload key before starting Pi');

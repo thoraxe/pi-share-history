@@ -104,11 +104,13 @@ test('directory lists record counts and puts live shares first', async () => {
   } finally { await service.close(); rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('record allowlist omits credentials, metadata, images, and thinking', () => {
+test('record allowlist omits credentials, metadata, images, and thinking signatures', () => {
   assert.equal(messageRecord({ role: 'system', content: 'secret' }), null);
-  const record = messageRecord({ role: 'assistant', timestamp: 123, details: { key: 'secret' }, content: [{ type: 'text', text: 'Hello' }, { type: 'thinking', thinking: 'secret' }, { type: 'image', data: 'secret' }], thinkingSignature: 'secret' });
+  const record = messageRecord({ role: 'assistant', timestamp: 123, details: { key: 'secret' }, content: [{ type: 'text', text: 'Hello' }, { type: 'thinking', thinking: 'reasoning', thinkingSignature: 'secret' }, { type: 'image', data: 'secret' }], thinkingSignature: 'secret' });
   assert.equal(JSON.stringify(record).includes('secret'), false);
   assert.match(record.text, /Hello/);
+  assert.equal(record.text.includes('reasoning'), false);
+  assert.equal(record.thinking, 'reasoning');
   assert.equal(record.id, messageRecord({ role: 'assistant', timestamp: 123, content: 'updated' }).id);
   assert.equal(toolRecord({ type: 'tool_execution_end', toolCallId: 'a', toolName: 'bash', result: { content: [{ type: 'text', text: 'done' }], details: { key: 'secret' } } }).text, 'done');
   assert.ok(Buffer.byteLength(JSON.stringify(messageRecord({ role: 'user', timestamp: 1, content: '😀'.repeat(100000) }))) < 128 * 1024);

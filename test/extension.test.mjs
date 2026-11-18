@@ -182,20 +182,32 @@ test('a branch-captured in-flight call keeps its arguments when the end event ha
   });
 });
 
-test('assistant text keeps prose and omission placeholders but drops tool call blocks (10a)', () => {
+test('assistant text keeps prose and omission placeholders, drops tool calls, and publishes thinking separately (10a, 10b, 11)', () => {
   const record = messageRecord({ role: 'assistant', timestamp: 210, content: [
     { type: 'text', text: 'I will open the file.' },
     { type: 'toolCall', id: 'c1', name: 'read', arguments: { path: '/tmp/listed-path' } },
-    { type: 'thinking', thinking: 'private reasoning' },
+    { type: 'thinking', thinking: 'private reasoning', thinkingSignature: 'secret-signature' },
     { type: 'image', data: 'image-bytes' },
     { type: 'widget', payload: 'unknown-payload' },
   ] });
-  assert.equal(record.text, 'I will open the file.\n\n[thinking omitted]\n\n[image omitted]\n\n[widget block omitted]');
+  assert.equal(record.text, 'I will open the file.\n\n[image omitted]\n\n[widget block omitted]');
+  assert.equal(record.thinking, 'private reasoning');
   assert.equal(JSON.stringify(record).includes('/tmp/listed-path'), false);
+  assert.equal(JSON.stringify(record).includes('secret-signature'), false);
   assert.equal(record.text.includes('Tool:'), false);
   assert.equal(record.text.includes('toolCall'), false);
   assert.equal(record.text.includes('private reasoning'), false);
   assert.equal(record.text.includes('image-bytes'), false);
+});
+
+test('thinking stays capped at 24000 characters with the truncation suffix (3, 11)', () => {
+  const record = messageRecord({ role: 'assistant', timestamp: 215, content: [
+    { type: 'text', text: 'reply' },
+    { type: 'thinking', thinking: 'a'.repeat(30000) },
+  ] });
+  assert.equal(record.text, 'reply');
+  assert.ok(record.thinking.endsWith(suffix));
+  assert.equal(record.thinking.length, 24000 + suffix.length);
 });
 
 test('an assistant message that only calls a tool publishes empty text and does not throw (10a)', () => {

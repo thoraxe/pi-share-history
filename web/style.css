@@ -139,6 +139,15 @@ article[data-kind="compactionSummary"] {
 article[data-error="true"] { border-color: var(--error); border-inline-start-width: 4px; background: var(--error-surface); }
 article[data-error="true"] .meta { color: var(--error); }
 
+/* Rule 7b2: thinking sits with its record as a subdued disclosure. Read mode hides it. */
+.thinking {
+  margin-top: .75rem;
+  padding-top: .5rem;
+  border-top: 1px solid var(--border);
+}
+.thinking summary { color: var(--muted); font-size: .8rem; }
+.thinking pre { margin: .5rem 0 0; color: var(--muted); }
+
 @media (prefers-reduced-motion: reduce) { .share-time .relative { transition: none; } }
 
 /* Metadata stays in the accessibility tree and out of the layout. Read mode reveals it on hover or focus. */

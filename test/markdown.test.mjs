@@ -312,6 +312,40 @@ test('Read mode hides an empty record and Advanced mode shows it, and errors sta
   } finally { ui.dom.window.close(); }
 });
 
+test('Read mode hides thinking and Advanced mode shows it with the record (7b2)', async () => {
+  const ui = await modeViewer({ records: [
+    rec('a1', 'assistant', { text: 'reply', thinking: 'private reasoning', timestamp: 0 }),
+    rec('a2', 'assistant', { text: '', thinking: 'tool-only reasoning', timestamp: 1 }),
+  ] });
+  try {
+    const { window } = ui, document = window.document, [reply, toolOnly] = articles(window);
+    const thinking = reply.querySelector('.thinking');
+    assert.ok(thinking);
+    assert.equal(thinking.hidden, true);                             // 7b2: Read mode hides it.
+    assert.equal(reply.querySelector('pre').textContent, 'reply');  // 11: thinking is not inline text.
+    assert.equal(toolOnly.hidden, true);                            // 7b1: no text, so Read mode hides the record.
+
+    toggle(window).click();
+    assert.equal(thinking.hidden, false);
+    assert.equal(thinking.open, false);                             // 7b2: Advanced mode may start collapsed.
+    assert.match(thinking.textContent, /private reasoning/);
+    assert.equal(toolOnly.hidden, false);                           // Advanced mode shows the record.
+    assert.equal(toolOnly.querySelector('.thinking').hidden, false);
+
+    // The search walk does not reach collapsed or hidden thinking.
+    const search = document.getElementById('search');
+    search.value = 'private reasoning';
+    search.dispatchEvent(new window.Event('input'));
+    assert.equal(reply.hidden, true);
+    thinking.open = true;
+    search.dispatchEvent(new window.Event('input'));
+    assert.equal(reply.hidden, false);
+
+    toggle(window).click();
+    assert.equal(thinking.hidden, true);                            // A mode switch hides it again.
+  } finally { ui.dom.window.close(); }
+});
+
 test('follow-live scrolls to the newest record, stops after a scroll away, and resumes on the button (7)', async () => {
   const ui = await modeViewer({ records: [rec('a1', 'assistant', { text: 'start', timestamp: 0 })] });
   try {

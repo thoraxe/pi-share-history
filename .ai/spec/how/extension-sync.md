@@ -11,6 +11,7 @@
 | `server()` | Validates `PI_SHARE_URL` and returns the normalized base URL. |
 | `request()` | JSON `fetch` with Bearer auth, redirect rejection, and a 5 s timeout. |
 | `capture()` | Walks `sessionManager.getBranch()` and queues message/summary records, plus a `tool` record synthesized from each assistant `toolCall` block and its `toolResult`. |
+| `extension/records.mjs` | Maps a thinking block to the record's `thinking` field. It adds no thinking text to `text` and drops thinking signatures. |
 | `flush()` | Uploads queued records/drafts in bounded batches, serialized by `sending`. |
 | `put`, `status`, `startTimer`, `stop` | Queue insertion, status bar, 1.5 s flush timer, live stop. |
 | `setDraft`, `pollDraft`, `disableDrafts`, `clearSubmittedDraft` | Draft lifecycle driven from the editor. |
@@ -51,3 +52,4 @@
 - Draft revisions are `Math.max(revision + 1, Date.now())`. A restarted process cannot reuse a revision that the service has already seen.
 - `disableDrafts()` forces one empty draft when it had been on or had text. The viewer then clears even if no further uploads occur.
 - Record capture uses `entry.type === 'message'` plus compaction/branch-summary entries. Live execution captures tool events directly. A branch capture instead rebuilds each tool record from an assistant `toolCall` block and the `toolResult` message with the same `toolCallId`, under the same `tool:<toolCallId>` id, so history and live upserts converge.
+- `content()` drops thinking blocks from `text`. `thinking()` joins the text of those blocks and caps it at 24,000 characters. `messageRecord()` sets the field only when the result is not empty, so an older share gains no empty field.

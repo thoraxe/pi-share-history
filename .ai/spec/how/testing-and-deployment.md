@@ -10,7 +10,7 @@ Tests run on `node:test` with no test framework dependency. The service tests im
 | `test/extension.test.mjs` | fake `pi` and `ctx` objects | Full lifecycle against a real service at `/` and `/pi-history`, record mapping for messages and tools including history capture, and `/share` version detection. |
 | `test/drafts.test.mjs` | `fixture`, `until`, jsdom viewer | Owner-only/ephemeral drafts, revision ordering, submission without duplicates, expiry, disconnect cleanup. |
 | `test/subpath.test.mjs` | prefix fixtures | Prefixed API/assets/SSE, canonical redirect, legacy link handling, client URL construction. |
-| `test/markdown.test.mjs` | `browser()`, `modeViewer()`, `placeReader()`, jsdom | Rendering, sanitization, raw HTML/image blocking, toggle persistence, fail-closed behavior, Read/Advanced modes, empty-record hiding, record roles, tool groups, metadata visibility, compact share state, new-activity pill. |
+| `test/markdown.test.mjs` | `browser()`, `modeViewer()`, `placeReader()`, `copyButtons()`, jsdom | Rendering, sanitization, raw HTML/image blocking, toggle persistence, fail-closed behavior, Read/Advanced modes, empty-record hiding, record roles, tool groups, metadata visibility, compact share state, new-activity pill, record anchors, deep links, copy-link actions. |
 | `test/theme.test.mjs` | jsdom with mocked `matchMedia` | Pre-paint theme, cycle order, storage sync, blocked storage. |
 | `Dockerfile` | node:22-bookworm-slim stages | Copies only `package.json`, `server/`, and `web/`. Creates `/data`. Runs as `node`. No npm install. |
 | `compose.yaml` | `history` service, `history-data` volume | Requires `UPLOAD_KEY`/`PUBLIC_URL`, binds `127.0.0.1:9080`, caps memory at 512 MB, rotates logs. |
@@ -28,7 +28,7 @@ Tests run on `node:test` with no test framework dependency. The service tests im
 ## Key Abstractions
 
 - **Fake Pi harness.** Tests hand the extension a plain object with `on`, `registerCommand`, and `appendEntry`, plus a `ctx` with `sessionManager.getBranch` and a scripted `ui`. This exercises real handlers without a Pi process.
-- **jsdom with `runScripts: 'outside-only'`.** Tests `eval` the committed browser assets in a simulated page. No network is used.
+- **jsdom with `runScripts: 'outside-only'`.** Tests `eval` the committed browser assets in a simulated page. No network is used. `modeViewer()` also stubs `navigator.clipboard` and `scrollIntoView`, and it captures the `setTimeout` callbacks, so a test drives the 2 s highlight and note timers without a wait.
 - **Real HTTP against ephemeral ports.** The service, subpath, and extension tests use `fetch` against a listening service, not a mock.
 - **Vendored assets are part of the repository.** `npm run vendor:web` is the only supported refresh path. Production reads the committed files.
 

@@ -148,9 +148,10 @@ const toolRecords = () => [
   rec('b1', 'bashExecution', { timestamp: 4 }),
 ];
 
-async function modeViewer({ records = [], savedAdvanced, blocked = false, markdown = false, draft, live = false, landAway = false, defer = false } = {}) {
+async function modeViewer({ records = [], savedAdvanced, blocked = false, markdown = false, draft, live = false, landAway = false, defer = false, hash, clipboardFails = false } = {}) {
+  const sharePath = `https://logs.example.com/pi-history/s/${'a'.repeat(32)}`;
   const dom = new JSDOM(readWeb('index.html').replaceAll('__BASE_PATH__', '/pi-history'), {
-    url: `https://logs.example.com/pi-history/s/${'a'.repeat(32)}`, runScripts: 'outside-only',
+    url: `${sharePath}${hash ? `#${hash}` : ''}`, runScripts: 'outside-only',
   });
   const { window } = dom;
   // jsdom does not fetch the <link>, so inline the real stylesheet to keep computed styles observable.
@@ -159,6 +160,13 @@ async function modeViewer({ records = [], savedAdvanced, blocked = false, markdo
   if (savedAdvanced) window.localStorage.setItem(advancedKey, savedAdvanced);
   if (blocked) Object.defineProperty(window, 'localStorage', { get() { throw new Error('Storage blocked'); } });
   let payload = { title: 'Viewer test', updated: at, live, records, ...(draft ? { draft } : {}) }, source, fetches = 0, scrolls = 0, failStatus = 0;
+  // Anchors and copy links: jsdom lays nothing out and has no clipboard, so the test records both.
+  const copied = [], timers = [], scrolled = [];
+  window.Element.prototype.scrollIntoView = function scrollIntoView() { scrolled.push(this); };
+  Object.defineProperty(window.navigator, 'clipboard', {
+    configurable: true,
+    value: { writeText: async text => { if (clipboardFails) throw new Error('Clipboard blocked'); copied.push(text); } },
+  });
   // A deferred fetch holds each response until the test releases it, so a payload can resolve after a clear.
   const waiting = [];
   window.fetch = async () => {
@@ -168,7 +176,8 @@ async function modeViewer({ records = [], savedAdvanced, blocked = false, markdo
   };
   window.AbortSignal = AbortSignal;
   window.setInterval = () => 1;
-  window.setTimeout = () => 1;
+  // Timers are captured, so a test can run the highlight and confirmation timeouts without waiting.
+  window.setTimeout = (handler, delay) => { timers.push({ handler, delay }); return timers.length; };
   window.scrollTo = () => { scrolls++; };
   window.EventSource = class {
     listeners = {};
@@ -181,7 +190,7 @@ async function modeViewer({ records = [], savedAdvanced, blocked = false, markdo
   if (landAway) awayFromBottom(window);
   await tick();
   return {
-    dom, window,
+    dom, window, copied, timers, scrolled, sharePath,
     get fetches() { return fetches; },
     get scrolls() { return scrolls; },
     get source() { return source; },
@@ -1176,5 +1185,185 @@ test('a payload that resolves after a clear cannot render the transcript again (
     assert.equal(articles(window).length, 0);                      // It is discarded, so the page stays clear.
     assert.equal(pill(window).hidden, true);
     assert.equal(announcement(window).textContent, '');
+  } finally { ui.dom.window.close(); }
+});
+
+// Anchors, deep links, and copy links. A transcript URL may carry a record id as its fragment, and
+// every turn offers a copy-link action. jsdom exposes no clipboard and lays nothing out, so the tests
+// stub the clipboard, record scrollIntoView calls, and capture the 2 s timers.
+const copyButtons = window => [...window.document.querySelectorAll('#records .copy-link')];
+
+test('each message and tool step uses its record id as the element id, and a group row does not (7j1, 7j2)', async () => {
+  const ui = await modeViewer({ records: [
+    rec('u1', 'user', { text: 'hello', timestamp: 0 }),
+    ...toolRecords(),
+    rec('a1', 'assistant', { text: 'reply', timestamp: 5 }),
+  ] });
+  try {
+    const { window } = ui, document = window.document;
+    assert.equal(document.getElementById('u1'), document.querySelector('#records > article[data-kind="user"]'));
+    assert.equal(document.getElementById('a1'), document.querySelector('#records > article[data-kind="assistant"]'));
+    toggle(window).click();
+    for (const recordId of ['t1', 't2', 'r1', 'b1']) assert.equal(document.getElementById(recordId)?.tagName, 'DETAILS');
+    // The group row is a turn, but its id would collide with the step that shares the first record id.
+    const group = document.querySelector('.tool-group');
+    assert.equal(group.id, '');
+    assert.equal(['t1', 't2', 'r1', 'b1'].includes(group.id), false);
+    // A live append keeps the ids on the reused nodes.
+    await ui.update([
+      rec('u1', 'user', { text: 'hello', timestamp: 0 }),
+      ...toolRecords(),
+      rec('a1', 'assistant', { text: 'reply', timestamp: 5 }),
+      rec('a2', 'assistant', { text: 'more', timestamp: 6 }),
+    ]);
+    assert.equal(document.getElementById('a2').dataset.kind, 'assistant');
+    assert.equal(document.getElementById('t1').dataset.kind, 'tool');
+  } finally { ui.dom.window.close(); }
+});
+
+test('a deep link shows a record that Read mode would hide (7b3)', async () => {
+  const ui = await modeViewer({ hash: 'a1', records: [
+    rec('a0', 'assistant', { text: 'start', timestamp: 0 }),
+    rec('a1', 'assistant', { text: '', timestamp: 1 }),
+    rec('a2', 'assistant', { text: 'end', timestamp: 2 }),
+  ] });
+  try {
+    const { window } = ui, document = window.document, target = document.getElementById('a1');
+    assert.equal(document.documentElement.dataset.mode, 'read');
+    assert.equal(target.hidden, false);                       // 7b3 overrides 7b1 for the target.
+    assert.equal(articles(window)[0].hidden, false);
+    assert.deepEqual(ui.scrolled, [target]);                 // 24b, 24c: the viewer resolves and reveals it.
+    assert.equal(target.classList.contains('deep-link-target'), true);
+  } finally { ui.dom.window.close(); }
+});
+
+test('a deep link opens its tool group, turns follow-live off, and highlights for 2 s without layout (7b4, 24b-24e)', async () => {
+  const records = [rec('u1', 'user', { text: 'start', timestamp: 0 }), ...toolRecords(), rec('a1', 'assistant', { text: 'end', timestamp: 5 })];
+  const ui = await modeViewer({ hash: 't2', records });
+  try {
+    const { window } = ui, document = window.document;
+    const group = document.querySelector('.tool-group'), row = group.querySelector('.tool-row'), target = document.getElementById('t2');
+    assert.equal(document.documentElement.dataset.mode, 'read');
+    assert.equal(group.hidden, false);                       // 7b4: Read mode shows the containing group.
+    assert.equal(row.hidden, false);
+    assert.equal(row.open, true);
+    assert.deepEqual(ui.scrolled, [target]);                 // The scroll lands on the step, not the bottom.
+    assert.equal(ui.scrolls, 0);                             // 24d: a valid target suppresses the bottom scroll.
+    assert.equal(document.getElementById('follow').textContent, 'Follow live');
+    assert.equal(target.classList.contains('deep-link-target'), true);
+
+    // 24c: the highlight ends after 2 seconds. 24e: it is an outline, so no rule moves the layout.
+    const highlight = ui.timers.find(timer => timer.delay === 2000);
+    assert.ok(highlight, 'the highlight must end on a 2 s timer');
+    highlight.handler();
+    assert.equal(target.classList.contains('deep-link-target'), false);
+    const rules = styleRules().filter(rule => rule.selectorText.includes('.deep-link-target'));
+    assert.ok(rules.length);
+    const declared = rules.flatMap(rule => [...rule.style].map(name => `${name}: ${rule.style.getPropertyValue(name)}`)).join('; ');
+    assert.match(declared, /outline/);
+    assert.doesNotMatch(declared, /(^|; )(margin|padding|width|height|border)/);
+
+    // 24d: a live refresh does not scroll away from the target and keeps the group open. The pin holds
+    // even when the target sits at the bottom and a scroll would otherwise turn follow-live on.
+    atBottom(window);
+    // The control must not claim to follow while the pin keeps the page on the target.
+    assert.equal(document.getElementById('follow').textContent, 'Follow live');
+    await ui.update([...records, rec('a2', 'assistant', { text: 'later', timestamp: 6 })]);
+    assert.equal(ui.scrolls, 0);
+    assert.equal(row.open, true);
+    assert.equal(group.hidden, false);
+
+    // 7y: the follow control is how the reader resumes live scrolling after a deep link.
+    document.getElementById('follow').click();
+    assert.ok(ui.scrolls > 0);
+    assert.equal(document.getElementById('follow').textContent, 'Following live');
+  } finally { ui.dom.window.close(); }
+});
+
+test('a record id with a percent escape round-trips through the fragment and the copy link (24b, 24h)', async () => {
+  const targetId = 'entry:a%41b';
+  const ui = await modeViewer({ hash: targetId, records: [
+    rec('a0', 'assistant', { text: 'start', timestamp: 0 }),
+    rec(targetId, 'assistant', { text: 'target', timestamp: 1 }),
+  ] });
+  try {
+    const { window } = ui, target = window.document.getElementById(targetId);
+    assert.ok(target);
+    assert.deepEqual(ui.scrolled, [target]);                  // 24b: the raw id matches before any decode.
+    target.querySelector('.copy-link').click();
+    await tick();
+    assert.equal(ui.copied[0], `${ui.sharePath}#${targetId}`); // 24h: the link keeps the raw record id.
+  } finally { ui.dom.window.close(); }
+});
+
+test('an unknown fragment stays at the top and shows no error state (24f)', async () => {
+  const ui = await modeViewer({ hash: 'nosuchrecord', records: [rec('a1', 'assistant', { text: 'start', timestamp: 0 })] });
+  try {
+    const { window } = ui, document = window.document;
+    assert.equal(ui.scrolls, 0);                             // No follow-live scroll to the bottom.
+    assert.deepEqual(ui.scrolled, []);                       // Nothing to scroll to.
+    assert.equal(document.querySelectorAll('.deep-link-target').length, 0);
+    assert.doesNotMatch(document.getElementById('status').textContent, /not found|error|deleted|revoked/i);
+    assert.equal(document.getElementById('title').textContent, 'Viewer test');
+    assert.equal(articles(window).length, 1);
+  } finally { ui.dom.window.close(); }
+});
+
+test('each turn copies its absolute deep link, names the action, and confirms near it (24g-24j, 24l)', async () => {
+  const ui = await modeViewer({ records: [
+    rec('u1', 'user', { text: 'hello', timestamp: 0 }),
+    ...toolRecords(),
+    rec('a1', 'assistant', { text: 'reply', timestamp: 5 }),
+    rec('s1', 'branch_summary', { text: 'summary', timestamp: 6 }),
+  ] });
+  try {
+    const { window } = ui, document = window.document;
+    const buttons = copyButtons(window);
+    assert.equal(buttons.length, 4);                         // A prompt, a group, a reply, and a hidden summary.
+    assert.equal(document.documentElement.dataset.mode, 'read');
+    for (const button of buttons) {
+      assert.equal(button.tagName, 'BUTTON');
+      assert.equal(button.type, 'button');
+      assert.ok(button.getAttribute('aria-label').trim());   // 24l: an accessible name.
+      button.focus();
+      assert.equal(document.activeElement, button);          // 24l: keyboard reachable.
+    }
+    assert.equal(buttons.every(button => button.closest('.turn-actions')), true);
+
+    const click = async index => { buttons[index].click(); await tick(); };
+    await click(0);
+    assert.deepEqual(ui.copied, [`${ui.sharePath}#u1`]);      // 24h: absolute URL with the record fragment.
+    let note = buttons[0].parentElement.querySelector('.copy-note');
+    assert.match(note.textContent, /copied/i);               // 24j: short confirmation near the action.
+
+    await click(1);
+    assert.equal(ui.copied[1], `${ui.sharePath}#t1`);        // 24i: the group copies its first record id.
+    assert.match(buttons[1].parentElement.querySelector('.copy-note').textContent, /copied/i);
+
+    await click(2);
+    assert.equal(ui.copied[2], `${ui.sharePath}#a1`);
+    await click(3);
+    assert.equal(ui.copied[3], `${ui.sharePath}#s1`);        // A turn hidden in Read mode still offers the action.
+    note = buttons[3].parentElement.querySelector('.copy-note');
+    assert.match(note.textContent, /copied/i);
+    // The confirmation clears later, so it stays short.
+    const clear = ui.timers.filter(timer => timer.delay === 2000).at(-1);
+    clear.handler();
+    assert.equal(note.textContent, '');
+  } finally { ui.dom.window.close(); }
+});
+
+test('a failed clipboard write reports it and leaves the transcript and controls usable (24k)', async () => {
+  const ui = await modeViewer({ clipboardFails: true, records: [rec('a1', 'assistant', { text: 'start', timestamp: 0 })] });
+  try {
+    const { window } = ui, document = window.document, button = copyButtons(window)[0];
+    button.click();
+    await tick();
+    assert.match(button.parentElement.querySelector('.copy-note').textContent, /(copy failed|could not copy)/i);
+    assert.equal(ui.copied.length, 0);
+    assert.equal(articles(window).length, 1);                // The transcript stays on the page.
+    toggle(window).click();                                  // The controls still work.
+    assert.equal(document.documentElement.dataset.mode, 'advanced');
+    assert.equal(ui.fetches, 1);                             // No refetch to recover from the failure.
   } finally { ui.dom.window.close(); }
 });

@@ -26,6 +26,8 @@ The viewer is a static single-page client served by the service. It has two page
 7b. Read mode MUST show `user` prompts, `assistant` replies, errors, and `notice` records. Read mode MUST hide every other record. [DONE: #2]
 7b1. Read mode MUST hide a record that has an empty `text` and no `error`. Advanced mode MUST show every record. [DONE: #23]
 7b2. Read mode MUST NOT show a record's `thinking` text. Advanced mode MUST show the `thinking` text with its record. Advanced mode MAY start the text collapsed. [DONE: #27]
+7b3. The viewer MUST show a record that a deep link targets. This rule is an exception to the Read mode hiding in rules 7b and 7b1. [DONE: #8]
+7b4. The viewer MUST show a tool group that contains a deep-link target in Read mode. The viewer MUST open the group. This rule is an exception to rule 7n. [DONE: #8]
 7c. Advanced mode MUST show every record in the transcript. This set includes `tool` records, `toolResult` records, `bashExecution` records, summaries, and metadata. [DONE: #2]
 7d. The viewer MUST show an error record in Read mode and in Advanced mode. A mode change MUST NOT hide an error record. [DONE: #2]
 7e. A mode change MUST NOT fetch data again. It MUST NOT remove a record from the DOM. It MUST keep the scroll position. [DONE: #2]
@@ -37,6 +39,8 @@ The viewer is a static single-page client served by the service. It has two page
 7h. A `user` prompt MUST show a `You` label and a tinted background. An `assistant` reply MUST show as plain prose. An error MUST show as an inline notice. A summary MUST show as subdued text. [DONE: #4]
 7i. A record MUST NOT use a raw kind name as a heading. The viewer MUST NOT show a generic label such as "Content / output". [DONE: #4]
 7j. Markdown text, code blocks, and tables MUST render in both themes. This rule applies to `user` and `assistant` records. [DONE: #4]
+7j1. Each rendered message element and each rendered tool step MUST use its `record.id` as the element `id`. [DONE: #8]
+7j2. A tool group row MUST NOT use a record id as its element `id`. [DONE: #8]
 
 ### Tool groups
 
@@ -90,6 +94,21 @@ The viewer is a static single-page client served by the service. It has two page
 23. A connection error MUST clear any draft preview and show a reconnecting status.
 23a. A `404`, a `removed` event, or a reconnect MUST hide the new-activity pill and reset the count. [DONE: #6]
 24. The viewer MUST derive API and asset URLs from the served base path rather than assuming the domain root.
+
+### Anchors and links
+
+24a. A transcript URL MAY carry a fragment that holds a record id. [DONE: #8]
+24b. On load, the viewer MUST resolve the fragment to the element with that id. [DONE: #8]
+24c. If the target exists, the viewer MUST scroll the target into view. The viewer MUST highlight the target for 2 seconds. [DONE: #8]
+24d. The viewer MUST turn follow-live off for a valid deep link. A live refresh MUST NOT scroll away from the target. [DONE: #8]
+24e. The target highlight MUST NOT change the document layout. [DONE: #8]
+24f. If the target does not exist, the viewer MUST stay at the top. The viewer MUST NOT show an error state for the fragment. [DONE: #8]
+24g. The viewer MUST give each transcript turn a copy-link action. A turn is one message record or one tool group. [DONE: #8]
+24h. The viewer MUST copy the absolute URL of the turn on one activation of the copy-link action. The URL MUST end with `#<record-id>`. [DONE: #8]
+24i. The copy-link action on a tool group MUST use the record id of the first record in the group. [DONE: #8]
+24j. After a successful copy, the viewer MUST show a short confirmation near the action. [DONE: #8]
+24k. If the clipboard write fails, the viewer MUST show a short failure message. The viewer MUST keep the transcript and the controls usable. [DONE: #8]
+24l. The copy-link action MUST be reachable and operable with the keyboard. It MUST carry an accessible name. [DONE: #8]
 
 ## Configuration Surface
 

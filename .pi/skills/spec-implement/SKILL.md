@@ -1,6 +1,6 @@
 ---
 name: spec-implement
-description: Implement an approved pi-share-history spec. Use when building code against a merged spec PR, changing server/, extension/, web/, or tests, or converting PLANNED markers to DONE.
+description: Implement an approved pi-share-history spec. Use when building code against a spec PR with the `spec:approved` label, changing server/, extension/, web/, or tests, or converting PLANNED markers to DONE.
 ---
 
 # Spec implementation
@@ -11,7 +11,7 @@ Build against the approved spec. The spec is the contract. Do not merge behavior
 
 Stop and report when either condition is false:
 
-1. The spec PR is merged.
+1. The spec PR is open.
 2. A human applied the `spec:approved` label to the spec PR.
 
 An agent MUST NOT apply `spec:approved`. That label is the human approval gate. Do not start implementation before it exists.
@@ -19,7 +19,7 @@ An agent MUST NOT apply `spec:approved`. That label is the human approval gate. 
 Check with:
 
 ```bash
-gh pr view <spec-pr> --repo thoraxe/pi-share-history --json state,labels,mergedAt
+gh pr view <spec-pr> --repo thoraxe/pi-share-history --json state,labels
 ```
 
 ## Read first
@@ -31,7 +31,7 @@ gh pr view <spec-pr> --repo thoraxe/pi-share-history --json state,labels,mergedA
 
 ## Plan
 
-1. Create `impl/<slug>` from `main`. Include the merged spec.
+1. Check out the spec PR branch, for example `spec/<slug>`. Add the implementation to that branch. Do not create an `impl/<slug>` branch.
 2. Map each new rule to a code change and a test. Write the mapping down before you edit.
 3. If a rule is impossible or wrong, stop. Change the spec first in a separate PR. Do not code around the spec.
 
@@ -57,21 +57,21 @@ Check each changed rule against its test:
 
 Run the full suite. Report the count of pass and fail.
 
-## Commit and open the PR
+## Commit and update the PR
 
 1. Stage the code, test, spec marker, and `how/` changes. Do not stage unrelated files.
-2. Commit with a message that names the behavior, for example `Group tool activity per turn (#3)`.
-3. Push to the `fork` remote.
-4. Open a PR against `thoraxe:main`.
-5. Link the spec PR in the body.
-6. Put these sections in the body: Summary, Spec PR, Rules implemented, Tests, Manual checks.
-7. List each rule number next to its code change and its test.
-8. Report the manual checks that need a browser. Unit tests cover rendering logic only.
-9. Add the `ready-to-merge` label and enable auto-merge (squash) only after an independent review of this implementation PR reports no P0 and no P1 findings. This gate is for implementation PRs only. Never label or merge a spec PR.
+2. Commit with a message that names the behavior, for example `Group tool activity per turn (#3)`. Keep the approved spec commit and add this implementation as the next commit.
+3. Push the same branch to the `fork` remote. This updates the spec PR. Do not open a separate implementation PR.
+4. Update the PR body or add a comment. Do not link a separate spec PR, because this PR holds the spec change. Use these sections: Summary, Rules implemented, Tests, Manual checks.
+5. List each rule number next to its code change and its test.
+6. Report the manual checks that need a browser. Unit tests cover rendering logic only.
+7. Add the `ready-to-merge` label and enable auto-merge (squash) only after an independent review reports no P0 and no P1 findings. A PR that holds spec text only MUST NOT get `ready-to-merge`.
 
 ## Guardrails
 
-- Use one spec change per implementation PR.
+- Use one spec change per PR.
+- Do not create a separate implementation branch or PR. The implementation is a second commit on the spec PR.
+- Do not amend, rebase, or force-push the approved spec commit. The human approval applies to that commit.
 - Do not mix an unrelated fix into the PR.
 - Do not edit `what/` rules to match the code. Edit the code to match the rules.
 - Do not add a secret to the repo or a transcript.

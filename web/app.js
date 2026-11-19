@@ -65,6 +65,16 @@ const metadataText = record => [when(record.timestamp), record.model, record.sta
 const namedLabel = record => record.label && record.label !== record.kind ? record.label : '';
 // A bash-execution message has no tool name, so name the tool instead of showing its kind.
 const toolName = record => namedLabel(record) || (record.kind === 'bashExecution' ? 'bash' : toolNameFallback);
+// Rules 7n2 to 7n4 take the failure reason from the stored record: `errorMessage` first, then `text`.
+// The notice shows one line, so the viewer uses the first non-empty line and truncates a long one.
+const failureReasonLimit = 120;
+function failureReason(record) {
+  const source = [record.errorMessage, record.text].find(value => typeof value === 'string' && value.trim() !== '');
+  if (!source) return '';
+  const line = source.split('\n').map(part => part.trim()).find(part => part !== '');
+  if (!line) return '';
+  return line.length > failureReasonLimit ? `${line.slice(0, failureReasonLimit)}…` : line;
+}
 function renderBody(node, record) {
   const text = (record.text || '') + (record.errorMessage ? `\n${record.errorMessage}` : '');
   const useMarkdown = markdownEnabled && ['user', 'assistant'].includes(record.kind);
@@ -410,7 +420,11 @@ function updateGroupNode(node, records) {
     previous = step;
   }
   for (const [key, step] of steps) if (!keep.has(key)) { step.remove?.(); steps.delete(key); }
-  setText(node.querySelector('.tool-failure'), failed.map(record => `${toolName(record)} failed${record.errorMessage ? `: ${String(record.errorMessage).split('\n')[0]}` : ''}`).join(' · '));
+  // Rules 7n1 to 7n6 show the reason from the stored record only, and omit the separator when it is absent.
+  setText(node.querySelector('.tool-failure'), failed.map(record => {
+    const reason = failureReason(record);
+    return `${toolName(record)} failed${reason ? `: ${reason}` : ''}`;
+  }).join(' · '));
   node.querySelector('.tool-failure').hidden = !failed.length;
 }
 function buildUnits(records) {

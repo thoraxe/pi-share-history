@@ -568,6 +568,39 @@ test('a failed step warns while the row is closed and shows one notice in Read m
   } finally { ui.dom.window.close(); }
 });
 
+test('a failure notice names the stored reason, one line, truncated to 120 characters (7n1, 7n2, 7n3, 7n4, 7n5, 7n6)', async () => {
+  const longLine = 'x'.repeat(130);
+  const ui = await modeViewer({ records: [
+    rec('a1', 'assistant', { text: 'start', timestamp: 0 }),
+    // A record with both fields uses `errorMessage` and only its first non-empty line.
+    rec('t1', 'tool', { label: 'bash', status: 'error', error: true, errorMessage: '\nexit 1: missing file\nsecond line', text: 'ignored output', timestamp: 1 }),
+    // A record without `errorMessage` falls back to `text`.
+    rec('r1', 'toolResult', { label: 'read', error: true, text: '\npermission denied\nmore detail', timestamp: 2 }),
+    // A long reason is cut to 120 characters and marked with one ellipsis.
+    rec('t2', 'tool', { label: 'grep', status: 'error', error: true, errorMessage: longLine, timestamp: 3 }),
+    // A failed step with no reason shows the tool name and `failed` with no separator.
+    rec('t3', 'tool', { label: 'edit', status: 'error', error: true, text: '', errorMessage: '', timestamp: 4 }),
+  ] });
+  try {
+    const { window } = ui, document = window.document;
+    const fetchesBefore = ui.fetches;
+    const notices = [...document.querySelectorAll('.tool-group')].map(group => group.querySelector('.tool-failure'));
+    assert.equal(notices.length, 1);
+    const notice = notices[0];
+    assert.equal(notice.hidden, false);
+    assert.deepEqual(notice.textContent.split(' · '), [
+      'bash failed: exit 1: missing file',
+      'read failed: permission denied',
+      `grep failed: ${'x'.repeat(120)}…`,
+      'edit failed',
+    ]);
+    assert.equal(notice.textContent.includes('ignored output'), false);
+    assert.equal(notice.textContent.includes('second line'), false);
+    // Rule 7n6: the reason came from the stored records, so the notice renders without another fetch.
+    assert.equal(ui.fetches, fetchesBefore);
+  } finally { ui.dom.window.close(); }
+});
+
 test('a group never uses a label that repeats its kind as a heading (7i, 7l, 7n)', async () => {
   // The extension sets `label` to `toolName || customType || role`, so a bash-execution message carries
   // `label === kind`. The step count, the step label, and the failure notice must not show that kind name.

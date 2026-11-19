@@ -1,20 +1,28 @@
 #!/usr/bin/env sh
 # Deploy pi-share-history to the current (or named) OpenShift project.
 #
-#   ./deploy/openshift/deploy.sh            # build and deploy into the current project
+#   ./deploy/openshift/deploy.sh            # deploy into the current project
 #   ./deploy/openshift/deploy.sh my-ns      # ... into another project you can write to
+#
+# The image is pulled from GitHub Container Registry. Override the version with:
+#   PI_HISTORY_IMAGE=ghcr.io/thoraxe/pi-share-history:0.2.0 ./deploy/openshift/deploy.sh
+#
+# For a private package, create a pull secret first and name it:
+#   oc create secret docker-registry ghcr-pull \
+#     --docker-server=ghcr.io --docker-username=<user> --docker-password=<token>
+#   PI_HISTORY_PULL_SECRET=ghcr-pull ./deploy/openshift/deploy.sh
 #
 # Set PI_HISTORY_ALLOW_ROUTER=1 to also install the optional NetworkPolicy that
 # lets the ingress router reach the pods; needed only if the project already
 # restricts ingress traffic.
 #
-# Idempotent: rerunning rebuilds the image, keeps the existing UPLOAD_KEY and
-# PersistentVolumeClaim, and re-resolves the public URL from the Route.
+# Idempotent: rerunning keeps the existing UPLOAD_KEY and PersistentVolumeClaim,
+# and re-resolves the public URL from the Route.
 set -eu
 
 here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-repo=$(CDPATH= cd -- "$here/../.." && pwd)
 ns=${1:-}
+image=${PI_HISTORY_IMAGE:-ghcr.io/thoraxe/pi-share-history:0.1.0}
 
 if [ -n "$ns" ]; then
   oc_ns() { oc -n "$ns" "$@"; }
@@ -29,13 +37,10 @@ oc whoami >/dev/null 2>&1 || { echo "Not logged in. Run 'oc login' first." >&2; 
 [ -n "$ns" ] || ns=$(oc project -q)
 
 say "Project: $ns"
+say "Image: $image"
 
-say "Applying ImageStream, BuildConfig, PVC and Service"
-oc_ns apply -f "$here/imagestream.yaml" -f "$here/buildconfig.yaml" \
-  -f "$here/pvc.yaml" -f "$here/service.yaml"
-
-say "Building image from $repo/Dockerfile (this takes a few minutes on a cold cache)"
-oc_ns start-build pi-history --from-dir="$repo" --follow
+say "Applying PVC and Service"
+oc_ns apply -f "$here/pvc.yaml" -f "$here/service.yaml"
 
 say "Applying Route and resolving its hostname"
 oc_ns apply -f "$here/route.yaml"
@@ -65,6 +70,11 @@ else
   printf 'Publishers use this value as PI_SHARE_KEY:\n\n  %s\n\n' "$key"
 fi
 
+if [ -n "${PI_HISTORY_PULL_SECRET:-}" ]; then
+  say "Linking pull secret $PI_HISTORY_PULL_SECRET to the default service account"
+  oc_ns secrets link default "$PI_HISTORY_PULL_SECRET" --for=pull
+fi
+
 # restricted SCCs only accept an fsGroup from the project's allotted range.
 groups=$(oc_ns get ns "$ns" -o jsonpath='{.metadata.annotations.openshift\.io/sa\.scc\.supplemental-groups}' 2>/dev/null || true)
 fs_group=${groups%%/*}
@@ -74,15 +84,11 @@ else
   fs_group=1000
   say "No supplemental-groups annotation; using fsGroup $fs_group"
 fi
-sed "s/^        fsGroup: 1000$/        fsGroup: $fs_group/" "$here/deployment.yaml" \
-  | oc_ns apply -f -
 
-# Pin the exact image built above; the pod spec cannot resolve a bare
-# ImageStreamTag name on current OpenShift.
-say "Pointing the deployment at the freshly built image"
-image=$(oc_ns get istag pi-history:latest -o jsonpath='{.image.dockerImageReference}')
-[ -n "$image" ] || { echo "ImageStream pi-history:latest has no image" >&2; exit 1; }
-oc_ns set image deployment/pi-history pi-history="$image" >/dev/null
+say "Deploying $image"
+sed -e "s/^        fsGroup: 1000$/        fsGroup: $fs_group/" \
+    -e "s|^          image: ghcr.io/thoraxe/pi-share-history:.*$|          image: $image|" \
+    "$here/deployment.yaml" | oc_ns apply -f -
 
 say "Waiting for the rollout"
 oc_ns rollout status deployment/pi-history --timeout=180s

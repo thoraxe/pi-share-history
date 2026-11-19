@@ -4,27 +4,20 @@
 # deploy.sh creates it automatically if it is missing. Give publishers the same
 # value as PI_SHARE_KEY.
 #
-# The image is resolved through the pi-history:latest ImageStream built by
-# buildconfig.yaml. Bare ImageStreamTag names are not resolved by the pod spec on
-# current OpenShift, so the trigger below (and deploy.sh) point the container at
-# the internal registry reference. When deploying by hand, either keep the
-# annotation or set the image explicitly:
-#   oc set image deployment/pi-history pi-history=$(oc get istag pi-history:latest \
-#     -o jsonpath='{.image.dockerImageReference}')
+# The image is a released artifact from GitHub Container Registry. Pin a full
+# version and move it only when you mean to upgrade. deploy.sh rewrites the tag
+# from PI_HISTORY_IMAGE.
+#
+# A private package needs a pull secret linked to the default service account:
+#   oc create secret docker-registry ghcr-pull \
+#     --docker-server=ghcr.io --docker-username=<user> --docker-password=<token>
+#   oc secrets link default ghcr-pull --for=pull
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: pi-history
   labels:
     app.kubernetes.io/name: pi-history
-  annotations:
-    image.openshift.io/triggers: |
-      [
-        {
-          "from": {"kind": "ImageStreamTag", "name": "pi-history:latest", "namespace": ""},
-          "fieldPath": "spec.template.spec.containers[?(@.name==\"pi-history\")].image"
-        }
-      ]
 spec:
   # SQLite on a ReadWriteOnce volume: exactly one replica, replaced in place.
   replicas: 1
@@ -51,8 +44,8 @@ spec:
           type: RuntimeDefault
       containers:
         - name: pi-history
-          image: pi-history:latest
-          imagePullPolicy: Always
+          image: ghcr.io/thoraxe/pi-share-history:0.1.0
+          imagePullPolicy: IfNotPresent
           ports:
             - name: http
               containerPort: 9080

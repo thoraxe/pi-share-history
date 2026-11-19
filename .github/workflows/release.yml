@@ -1,0 +1,65 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/pi-share-history
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --legacy-peer-deps --ignore-scripts
+      - run: npm test
+
+  image:
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: v
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "minor=${version%.*}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        run: |
+          docker build \
+            --build-arg VERSION="${{ steps.v.outputs.version }}" \
+            --build-arg REVISION="${{ github.sha }}" \
+            -t "$IMAGE:${{ steps.v.outputs.version }}" \
+            -t "$IMAGE:${{ steps.v.outputs.minor }}" \
+            -t "$IMAGE:latest" .
+          docker push --all-tags "$IMAGE"
+
+      - name: Summary
+        run: |
+          {
+            echo "### Image"
+            echo '```'
+            echo "$IMAGE:${{ steps.v.outputs.version }}"
+            echo "$IMAGE:${{ steps.v.outputs.minor }}"
+            echo "$IMAGE:latest"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

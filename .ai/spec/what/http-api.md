@@ -22,6 +22,7 @@ The service exposes a small JSON API, an SSE stream, and static browser assets u
 ### Endpoints
 
 10. `GET /health` MUST return `200` and `{"ok":true}`.
+10a. `GET /health` MUST return a `schema` field. The `schema` field MUST hold the active database schema version as an integer. [PLANNED: #48]
 11. `GET /api/shares` MUST return up to 200 non-revoked shares, each with `id`, `title`, `created`, `updated`, and a boolean `live`.
 11a. `GET /api/shares` MUST return a `count` field for each share. The `count` field MUST hold the number of stored records for that share. [DONE: #9]
 11b. The service MUST compute `count` in the same query that reads the shares. The service MUST NOT run one query for each share. [DONE: #9]
@@ -64,4 +65,4 @@ The service exposes a small JSON API, an SSE stream, and static browser assets u
 
 | Ticket | Summary |
 |---|---|
-| — | No planned changes recorded. |
+| #48 | Report the database schema version in `GET /health`. |

@@ -29,6 +29,18 @@ Pi share history has two parts: a Pi extension that captures and uploads session
 15. Live status MUST be derived from recency: `live` is reported only while the last publisher upload is younger than 20 seconds.
 16. Navigating branches or compaction MUST only add records. Previously published records MUST remain visible.
 
+### Schema versioning
+
+17. The service MUST store an integer schema version in the SQLite database. It MUST use `PRAGMA user_version` for this value. [PLANNED: #48]
+18. The service MUST apply each pending migration at startup. It MUST apply the pending migrations in order and in one transaction. [PLANNED: #48]
+19. A failed migration MUST leave the database unchanged. The service MUST NOT start after a failed migration. [PLANNED: #48]
+20. The service MUST refuse to open a database whose schema version is newer than the service schema version. The error message MUST name both versions. [PLANNED: #48]
+21. Schema version `0` MUST identify the v0.1.0 schema. The service MUST migrate a version `0` database to version `1` without data loss. [PLANNED: #48]
+22. The service schema version MUST increase by one for each schema change. [PLANNED: #48]
+23. The startup log MUST report the active schema version. [PLANNED: #48]
+24. The test suite MUST hold one fixture database for each released schema version. A test MUST open each fixture and migrate it to the current schema version. [PLANNED: #48]
+24a. A test MUST open a database with a newer schema version. The test MUST assert that the service refuses the database. [PLANNED: #48]
+
 ## Configuration Surface
 
 Service environment (read by `server/index.mjs` when run as the entry point):
@@ -55,4 +67,4 @@ Extension environment:
 
 | Ticket | Summary |
 |---|---|
-| — | No planned changes recorded. |
+| #48 | Store a schema version and apply migrations at startup. |

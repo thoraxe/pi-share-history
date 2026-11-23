@@ -15,6 +15,7 @@ Tests run on `node:test` with no test framework dependency. The service tests im
 | `Dockerfile` | node:22-bookworm-slim stages | Copies only `package.json`, `server/`, and `web/`. Creates `/data`. Runs as `node`. No npm install. |
 | `compose.yaml` | `history` service, `history-data` volume | Requires `UPLOAD_KEY`/`PUBLIC_URL`, binds `127.0.0.1:9080`, caps memory at 512 MB, rotates logs. |
 | `deploy/Caddyfile` | `logs.example.com` site, `@legacy` matcher | TLS, `/pi-history` 308 redirect, and a prefix-preserving reverse proxy with `flush_interval -1`. It also redirects legacy `/s/<id>` links and returns 404 at the root. |
+| `deploy/openshift/` | `deployment.yaml`, `service.yaml`, `route.yaml`, `pvc.yaml`, `configmap.yaml`, `netpol-allow-router.yaml`, `deploy.sh` | Runs the released image in an OpenShift project. The cluster pulls the image. There is no in-cluster build. The README in that directory covers install, upgrade, and rollback. |
 | `.dockerignore` | — | Keeps `.env`, `.git`, `node_modules`, `data`, `test`, `extension` out of the image. |
 | `scripts/vendor-web.mjs` | copy list | Copies pinned Marked/DOMPurify builds and licenses into `web/vendor/`. |
 
@@ -50,6 +51,7 @@ Tests run on `node:test` with no test framework dependency. The service tests im
 - Do not use Caddy `handle_path` for `/pi-history/*`. It strips the prefix that the service expects.
 - After a Marked or DOMPurify version change, update the exact devDependency versions. Then rerun `npm ci` and `npm run vendor:web`. Commit the regenerated assets, their licenses, and the lockfile.
 - `deploy/Caddyfile` and the deploy hosts in the README are examples. Replace the hostname before you deploy.
+- The OpenShift Deployment pins a full release tag. Do not add an in-cluster build. A cluster-side build produces a second artifact that can drift from the released image. Upgrade by changing the image reference.
 
 ## Verification
 

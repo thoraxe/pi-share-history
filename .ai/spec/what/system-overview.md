@@ -67,4 +67,4 @@ Extension environment:
 
 | Ticket | Summary |
 |---|---|
-| #48 | Store a schema version and apply migrations at startup. |
+| — | No planned changes recorded. |

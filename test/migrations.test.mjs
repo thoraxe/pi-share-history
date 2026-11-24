@@ -14,7 +14,7 @@ const withDatabase = (path, run) => {
   const db = new DatabaseSync(path);
   try { return run(db); } finally { db.close(); }
 };
-const rows = (db, table) => db.prepare(`SELECT * FROM ${table} ORDER BY 1`).all().map(row => ({ ...row }));
+const rows = (db, table) => db.prepare(`SELECT * FROM ${table} ORDER BY 1,2`).all().map(row => ({ ...row }));
 
 test('each service schema change adds one ordered migration', () => {
   // Rule 22: each schema change increments the version by one.
@@ -39,7 +39,8 @@ test('health reports the active schema version as an integer', async () => {
 
 test('each released fixture database migrates to the current schema without data loss', async () => {
   // Rule 24: one fixture for each released schema version.
-  const files = readdirSync(fixtures).filter(name => /^schema-\d+\.sqlite$/.test(name)).sort();
+  const files = readdirSync(fixtures).filter(name => /^schema-\d+\.sqlite$/.test(name))
+    .sort((a, b) => Number(basename(a, '.sqlite').slice('schema-'.length)) - Number(basename(b, '.sqlite').slice('schema-'.length)));
   assert.deepEqual(
     files.map(file => Number(basename(file, '.sqlite').slice('schema-'.length))),
     Array.from({ length: SCHEMA_VERSION }, (_, version) => version),
@@ -84,9 +85,11 @@ test('a newer database is refused and the error names both versions', async () =
     );
     const after = withDatabase(join(dir, 'history.sqlite'), db => ({
       version: db.prepare('PRAGMA user_version').get().user_version,
+      journal: db.prepare('PRAGMA journal_mode').get().journal_mode,
+      shares: db.prepare("SELECT count(*) AS n FROM sqlite_master WHERE type='table' AND name='shares'").get().n,
       value: db.prepare('SELECT value FROM keep').get().value,
     }));
-    assert.deepEqual(after, { version: newer, value: 'unchanged' });
+    assert.deepEqual(after, { version: newer, journal: 'delete', shares: 0, value: 'unchanged' });
   } finally { remove(dir); }
 });
 
@@ -99,10 +102,11 @@ test('a failed migration rolls back and stops startup', async () => {
     assert.throws(() => createService({ dataDir: dir, uploadKey: key }), /record_order/);
     const after = withDatabase(join(dir, 'history.sqlite'), db => ({
       version: db.prepare('PRAGMA user_version').get().user_version,
+      journal: db.prepare('PRAGMA journal_mode').get().journal_mode,
       shares: db.prepare("SELECT count(*) AS n FROM sqlite_master WHERE type='table' AND name='shares'").get().n,
       value: db.prepare('SELECT value FROM keep').get().value,
     }));
-    assert.deepEqual(after, { version: 0, shares: 0, value: 'unchanged' });
+    assert.deepEqual(after, { version: 0, journal: 'delete', shares: 0, value: 'unchanged' });
     // A leaked connection would keep the database files open on Windows.
     assert.deepEqual(readdirSync(dir), ['history.sqlite']);
   } finally { remove(dir); }
@@ -139,26 +143,26 @@ test('the startup log reports the active schema version', async () => {
   child.stdout.setEncoding('utf8');
   child.stderr.setEncoding('utf8');
   const exit = new Promise(resolve => child.once('exit', resolve));
-  let text = '';
+  let stdout = '', stderr = '';
   try {
     const output = await new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error(`Startup log timed out: ${text}`)), 15000);
+      const timer = setTimeout(() => reject(new Error(`Startup log timed out: ${stdout}${stderr}`)), 15000);
       child.stdout.on('data', chunk => {
-        text += chunk;
+        stdout += chunk;
         // Rule 23.
-        if (text.includes(`schema version ${SCHEMA_VERSION}`)) {
-          clearTimeout(timer); resolve(text);
+        if (stdout.includes(`schema version ${SCHEMA_VERSION}`)) {
+          clearTimeout(timer); resolve(stdout);
         }
       });
-      child.stderr.on('data', chunk => { text += chunk; });
+      child.stderr.on('data', chunk => { stderr += chunk; });
       child.once('error', error => { clearTimeout(timer); reject(error); });
       child.once('exit', code => {
-        if (!text.includes(`schema version ${SCHEMA_VERSION}`)) {
-          clearTimeout(timer); reject(new Error(`Startup exited with ${code}: ${text}`));
+        if (!stdout.includes(`schema version ${SCHEMA_VERSION}`)) {
+          clearTimeout(timer); reject(new Error(`Startup exited with ${code}: ${stdout}${stderr}`));
         }
       });
     });
-    assert.match(output, new RegExp(`schema version ${SCHEMA_VERSION}`));
+    assert.match(output, new RegExp(`listening on port \\d+ with schema version ${SCHEMA_VERSION}`));
   } finally {
     child.kill();
     await exit;

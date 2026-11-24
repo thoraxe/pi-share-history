@@ -65,4 +65,4 @@ The service exposes a small JSON API, an SSE stream, and static browser assets u
 
 | Ticket | Summary |
 |---|---|
-| #48 | Report the database schema version in `GET /health`. |
+| — | No planned changes recorded. |

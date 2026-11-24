@@ -55,8 +55,10 @@ export function createService({ dataDir = './data', uploadKey, publicUrl = 'http
   const db = new DatabaseSync(resolve(dataDir, 'history.sqlite'));
   let schemaVersion;
   try {
-    db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;');
+    db.exec('PRAGMA foreign_keys=ON;');
     schemaVersion = applyMigrations(db);
+    // Set WAL only after a successful migration, so a refused or failed database keeps its journal mode.
+    db.exec('PRAGMA journal_mode=WAL;');
   } catch (error) {
     db.close();
     throw error;
@@ -237,6 +239,6 @@ export function createService({ dataDir = './data', uploadKey, publicUrl = 'http
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const port = Number(process.env.PORT || 9080);
   const service = createService({ dataDir: process.env.DATA_DIR, uploadKey: process.env.UPLOAD_KEY, publicUrl: process.env.PUBLIC_URL });
-  service.server.listen(port, process.env.HOST || '0.0.0.0', () => console.log(`Pi history listening on port ${port} with schema version ${service.schemaVersion}`));
+  service.server.listen(port, process.env.HOST || '0.0.0.0', () => console.log(`Pi history listening on port ${service.server.address().port} with schema version ${service.schemaVersion}`));
   for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, async () => { await service.close(); process.exit(0); });
 }

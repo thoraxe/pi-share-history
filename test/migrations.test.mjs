@@ -14,7 +14,8 @@ const withDatabase = (path, run) => {
   const db = new DatabaseSync(path);
   try { return run(db); } finally { db.close(); }
 };
-const rows = (db, table) => db.prepare(`SELECT * FROM ${table} ORDER BY 1,2`).all().map(row => ({ ...row }));
+const rows = (db, table, columns) => db.prepare(`SELECT ${columns ? columns.map(name => `"${name}"`).join(',') : '*'} FROM ${table} ORDER BY 1,2`).all().map(row => ({ ...row }));
+const columns = (db, table) => db.prepare(`PRAGMA table_info(${table})`).all().map(column => column.name);
 
 test('each service schema change adds one ordered migration', () => {
   // Rule 22: each schema change increments the version by one.
@@ -34,6 +35,7 @@ test('health reports the active schema version as an integer', async () => {
     assert.equal(Number.isInteger(health.schema), true);
     assert.equal(service.schemaVersion, SCHEMA_VERSION);
     assert.equal(service.db.prepare('PRAGMA user_version').get().user_version, SCHEMA_VERSION);
+    assert.equal(service.db.prepare('PRAGMA journal_mode').get().journal_mode, 'wal');
   } finally { await service.close(); remove(dir); }
 });
 
@@ -52,6 +54,8 @@ test('each released fixture database migrates to the current schema without data
     try {
       const before = withDatabase(join(dir, 'history.sqlite'), db => ({
         version: db.prepare('PRAGMA user_version').get().user_version,
+        sharesColumns: columns(db, 'shares'),
+        recordsColumns: columns(db, 'records'),
         shares: rows(db, 'shares'),
         records: rows(db, 'records'),
       }));
@@ -64,8 +68,8 @@ test('each released fixture database migrates to the current schema without data
       // Rules 17 and 21: the fixture migrates to the current version and keeps every row and column.
       assert.equal(service.schemaVersion, SCHEMA_VERSION);
       assert.equal(service.db.prepare('PRAGMA user_version').get().user_version, SCHEMA_VERSION);
-      assert.deepEqual(rows(service.db, 'shares'), before.shares);
-      assert.deepEqual(rows(service.db, 'records'), before.records);
+      assert.deepEqual(rows(service.db, 'shares', before.sharesColumns), before.shares);
+      assert.deepEqual(rows(service.db, 'records', before.recordsColumns), before.records);
     } finally {
       await service?.close();
       remove(dir);

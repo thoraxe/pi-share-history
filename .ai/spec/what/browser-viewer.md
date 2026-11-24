@@ -134,4 +134,4 @@ The viewer is a static single-page client served by the service. It has two page
 
 | Ticket | Summary |
 |---|---|
-| #28 | Name the failure reason in the Read-mode failed-step notice. |
+| — | No planned changes recorded. |

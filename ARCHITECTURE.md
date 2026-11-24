@@ -103,6 +103,7 @@ The container runs as an unprivileged `node` user with a 512 MB memory cap. It s
 - **Ephemeral drafts.** Unsent editor text is an explicit opt-in and lives only in memory. It expires after eight seconds and can never become history.
 - **Per-share owner keys.** The upload key creates shares. Each share's owner key authorizes changes to that share. The service stores only a hash, and the local Pi session stores the key.
 - **Public by default.** The viewer has no login. Confidentiality depends on a VPN or an authenticated proxy, and the UI says so.
+- **Versioned schema.** The database stores its schema version in `PRAGMA user_version`. Pending migrations run in order in one transaction at startup, a failed migration stops the service, and a newer database is refused. See `.ai/spec/decisions/0008-schema-version-and-migrations.md`.
 - **`/pishare` on new Pi.** Pi 1.5 reserves `/share`. The extension keeps `/share` for older versions and answers to `/pishare` everywhere.
 
 Full specs live in `.ai/spec/`. Start with `.ai/spec/what/system-overview.md` for behavior and `.ai/spec/how/project-structure.md` for code navigation.

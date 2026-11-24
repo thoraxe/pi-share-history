@@ -1,6 +1,6 @@
 # Service
 
-`server/index.mjs` is the whole service. `createService(options)` builds an `http.Server`, opens SQLite, loads the browser assets into memory, and returns `{ server, db, close }`. The CLI entry point at the bottom calls it with environment variables.
+`server/index.mjs` is the whole service. `createService(options)` builds an `http.Server`, opens and migrates SQLite, loads the browser assets into memory, and returns `{ server, db, schemaVersion, close }`. The CLI entry point at the bottom calls it with environment variables.
 
 ## Module Map
 
@@ -30,7 +30,7 @@
 
 ## Key Abstractions
 
-- **Schema version:** `SCHEMA_VERSION` is `1`. Step `migrations[0]` creates the v0.1.0 tables and index, so a version `0` database migrates to version `1` without data loss (rule 21). A new schema change adds one step and increments the version by one (rule 22).
+- **Schema version:** `SCHEMA_VERSION` is `1`. Step `migrations[0]` creates the v0.1.0 tables and index, so a version `0` database migrates to version `1` without data loss (rule 21). A new schema change appends one step and increments the version by one (rule 22). A released step is never edited, only appended to.
 - **Schema:** `shares(id PK, owner, title, created, updated, live, revoked)` and `records(share FK CASCADE, id, body, position, PK(share,id))`. An index on `(share, position)` orders the records. The service enables WAL mode and foreign keys on the connection.
 - **Owner stored as hash:** `shares.owner = sha256(ownerKey)`. The `equal` helper hashes both arguments, so it hashes the request token twice. Verification still matches.
 - **Status derived, not stored:** `shares.live` is an intent flag. A read reports live only when the flag is set and the last update is less than 20 seconds old. The directory query repeats that test in SQL, so the `live` field and the live-first order agree.

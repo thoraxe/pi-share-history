@@ -21,14 +21,14 @@ export const migrations = [
 ];
 
 // Rules 18-21: run pending steps in order in one transaction and refuse a newer database.
-export function applyMigrations(db) {
+export function applyMigrations(db, { target = SCHEMA_VERSION, steps = migrations } = {}) {
   let version = db.prepare('PRAGMA user_version').get().user_version;
-  if (version > SCHEMA_VERSION) throw new Error(`Database schema version ${version} is newer than service schema version ${SCHEMA_VERSION}`);
-  if (version === SCHEMA_VERSION) return version;
+  if (version > target) throw new Error(`Database schema version ${version} is newer than service schema version ${target}`);
+  if (version === target) return version;
   db.exec('BEGIN');
   try {
-    while (version < SCHEMA_VERSION) {
-      const step = migrations[version];
+    while (version < target) {
+      const step = steps[version];
       if (typeof step !== 'function') throw new Error(`Missing migration from schema version ${version}`);
       step(db);
       db.exec(`PRAGMA user_version=${version + 1}`);
@@ -36,7 +36,7 @@ export function applyMigrations(db) {
     }
     db.exec('COMMIT');
   } catch (error) {
-    db.exec('ROLLBACK');
+    try { db.exec('ROLLBACK'); } catch { /* SQLite may already have rolled back. */ }
     throw error;
   }
   return version;

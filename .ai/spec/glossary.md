@@ -6,6 +6,10 @@
 | **Service** | The self-hosted Node process. It owns SQLite, serves the API, and serves the viewer. Do not call it the server, except in the `server/` code path. |
 | **Extension** | The Pi plugin in `extension/`. It captures records and uploads them. |
 | **Share** | One published Pi session. A `shares` row holds its id, title, owner hash, timestamps, live flag, and revoked flag. |
+| **Share id** | The 32-character identifier of a share. It matches `[A-Za-z0-9_-]{32}`. |
+| **Service URL** | The normalized base URL in `PI_SHARE_URL`. It includes the path prefix. |
+| **Share URL** | The viewer URL for a share. It is the service URL, `/s/`, and the share id. |
+| **Pi context** | The Pi extension context. It supplies the UI, session manager, and command actions. |
 | **Transcript** | The ordered records of a share, as a viewer sees them. |
 | **Record** | One unit of published transcript (message, tool execution, notice, summary). The service stores each record as JSON in `records`. |
 | **Record count** | The number of stored records in a share. The directory shows it for each share. |
@@ -29,5 +33,12 @@
 | **Tool group** | One disclosure row for consecutive `tool`, `toolResult`, and `bashExecution` records between two messages. |
 | **Failure reason** | A short text that explains a failed tool step. The viewer takes it from the record `errorMessage` or `text` field and shows it in the Read-mode notice. |
 | **Schema version** | An integer stored in the SQLite database. The service compares it with its own schema version at startup. |
+| **Imported session** | A new local Pi session built from a public share. It holds text from the share records and does not publish automatically. |
+| **Imported entry** | A Pi entry that the import builds from one share record. It holds the record text and no other copied record field. |
+| **Source share** | The share that `/share continue` reads. |
+| **Current share** | The share that the saved owner entry of the current session names. |
+| **Import marker** | The Pi custom entry `pi-share-history-import-v1`. It identifies an imported session and its source share. |
+| **Idle agent** | An agent with no turn in progress. |
+| **Custom message** | A Pi message with role `custom`. Pi sends its content to the model as a user message. |
 | **Publisher** | A Pi user who runs the extension against the service. |
 | **Viewer** | A browser that reads the directory or a transcript. It needs no authentication. |

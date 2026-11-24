@@ -12,6 +12,8 @@ Tests run on `node:test` with no test framework dependency. The service tests im
 | `test/subpath.test.mjs` | prefix fixtures | Prefixed API/assets/SSE, canonical redirect, legacy link handling, client URL construction. |
 | `test/markdown.test.mjs` | `browser()`, `modeViewer()`, `placeReader()`, `copyButtons()`, jsdom | Rendering, sanitization, raw HTML/image blocking, toggle persistence, fail-closed behavior, Read/Advanced modes, empty-record hiding, record roles, tool groups, metadata visibility, compact share state, new-activity pill, record anchors, deep links, copy-link actions. |
 | `test/theme.test.mjs` | jsdom with mocked `matchMedia` | Pre-paint theme, cycle order, storage sync, blocked storage. |
+| `test/migrations.test.mjs` | fixture loop, crafted databases, spawned CLI | Schema version in `/health`, fixture migration without data loss, newer-database refusal, failed-migration rollback, startup log. |
+| `test/fixtures/schema-0.sqlite` | v0.1.0 tables and sample rows | One released schema version per fixture. The migration test copies each fixture and opens it with `createService` (rule 24). |
 | `Dockerfile` | node:22-bookworm-slim stages | Copies only `package.json`, `server/`, and `web/`. Creates `/data`. Runs as `node`. No npm install. |
 | `compose.yaml` | `history` service, `history-data` volume | Requires `UPLOAD_KEY`/`PUBLIC_URL`, binds `127.0.0.1:9080`, caps memory at 512 MB, rotates logs. |
 | `deploy/Caddyfile` | `logs.example.com` site, `@legacy` matcher | TLS, `/pi-history` 308 redirect, and a prefix-preserving reverse proxy with `flush_interval -1`. It also redirects legacy `/s/<id>` links and returns 404 at the root. |
@@ -30,6 +32,7 @@ Tests run on `node:test` with no test framework dependency. The service tests im
 - **Fake Pi harness.** Tests hand the extension a plain object with `on`, `registerCommand`, and `appendEntry`, plus a `ctx` with `sessionManager.getBranch` and a scripted `ui`. This exercises real handlers without a Pi process.
 - **jsdom with `runScripts: 'outside-only'`.** Tests `eval` the committed browser assets in a simulated page. No network is used. `modeViewer()` also stubs `navigator.clipboard` and `scrollIntoView`, and it captures the `setTimeout` callbacks, so a test drives the 2 s highlight and note timers without a wait.
 - **Real HTTP against ephemeral ports.** The service, subpath, and extension tests use `fetch` against a listening service, not a mock.
+- **Fixture databases.** `test/fixtures/schema-<version>.sqlite` holds one database for each released schema version. The migration test copies each file, migrates it, and compares the sample rows. The filename version must equal `PRAGMA user_version`. A later release adds a fixture at its version (rule 24).
 - **Vendored assets are part of the repository.** `npm run vendor:web` is the only supported refresh path. Production reads the committed files.
 
 ## Integration Points
@@ -50,6 +53,7 @@ Tests run on `node:test` with no test framework dependency. The service tests im
 - Do not use Caddy `handle_path` for `/pi-history/*`. It strips the prefix that the service expects.
 - After a Marked or DOMPurify version change, update the exact devDependency versions. Then rerun `npm ci` and `npm run vendor:web`. Commit the regenerated assets, their licenses, and the lockfile.
 - `deploy/Caddyfile` and the deploy hosts in the README are examples. Replace the hostname before you deploy.
+- The startup-log test spawns `server/index.mjs` on port `0`, waits for the `schema version` line, then kills the child before it removes the data directory.
 
 ## Verification
 

@@ -31,15 +31,15 @@ Pi share history has two parts: a Pi extension that captures and uploads session
 
 ### Schema versioning
 
-17. The service MUST store an integer schema version in the SQLite database. It MUST use `PRAGMA user_version` for this value. [PLANNED: #48]
-18. The service MUST apply each pending migration at startup. It MUST apply the pending migrations in order and in one transaction. [PLANNED: #48]
-19. A failed migration MUST leave the database unchanged. The service MUST NOT start after a failed migration. [PLANNED: #48]
-20. The service MUST refuse to open a database whose schema version is newer than the service schema version. The error message MUST name both versions. [PLANNED: #48]
-21. Schema version `0` MUST identify the v0.1.0 schema. The service MUST migrate a version `0` database to version `1` without data loss. [PLANNED: #48]
-22. The service schema version MUST increase by one for each schema change. [PLANNED: #48]
-23. The startup log MUST report the active schema version. [PLANNED: #48]
-24. The test suite MUST hold one fixture database for each released schema version. A test MUST open each fixture and migrate it to the current schema version. [PLANNED: #48]
-24a. A test MUST open a database with a newer schema version. The test MUST assert that the service refuses the database. [PLANNED: #48]
+17. The service MUST store an integer schema version in the SQLite database. It MUST use `PRAGMA user_version` for this value. [DONE: #48]
+18. The service MUST apply each pending migration at startup. It MUST apply the pending migrations in order and in one transaction. [DONE: #48]
+19. A failed migration MUST leave the database unchanged. The service MUST NOT start after a failed migration. [DONE: #48]
+20. The service MUST refuse to open a database whose schema version is newer than the service schema version. The error message MUST name both versions. [DONE: #48]
+21. Schema version `0` MUST identify the v0.1.0 schema. The service MUST migrate a version `0` database to version `1` without data loss. [DONE: #48]
+22. The service schema version MUST increase by one for each schema change. [DONE: #48]
+23. The startup log MUST report the active schema version. [DONE: #48]
+24. The test suite MUST hold one fixture database for each released schema version. A test MUST open each fixture and migrate it to the current schema version. [DONE: #48]
+24a. A test MUST open a database with a newer schema version. The test MUST assert that the service refuses the database. [DONE: #48]
 
 ## Configuration Surface
 

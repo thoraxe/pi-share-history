@@ -6,7 +6,9 @@
 
 | Symbol | Responsibility |
 |---|---|
-| `createService` | Config validation, DB init, asset loading, HTTP handler, timers, shutdown. |
+| `createService` | Config validation, migration, asset loading, HTTP handler, timers, shutdown. Returns `{server, db, schemaVersion, close}`. |
+| `SCHEMA_VERSION`, `migrations` | Current integer schema version and the ordered migration steps. |
+| `applyMigrations` | Refuses a newer database; applies each pending step in one transaction (rules 17-22). |
 | `hash`, `equal` | SHA-256 helper and constant-time comparison used for both keys. |
 | `failure(status, message)` | Creates an `Error` with a `status` used by the catch-all response path. |
 | `body(req)` | Reads and parses a request body, enforcing the 1 MiB cap. |
@@ -17,16 +19,18 @@
 
 ## Data Flow
 
-1. Global security headers are set, then the URL is parsed and the configured prefix is stripped into `path`.
-2. `/health`, directory, and create routes are handled before the share pattern match. The directory query returns `id, title, created, updated, live, count` in one statement. It computes the effective `live` value in SQL and orders live shares first, then `updated` descending (rules 11a-11c).
-3. The regex `^/api/shares/([\w-]{32})(?:/(records|events|stop|revoke|draft))?$` splits the share id and action.
-4. The service fetches the share row once. For non-GET requests it authorizes the token against `shares.owner`, a SHA-256 of the owner key. It then checks `revoked`.
-5. Writes notify viewers only after the database change is committed. Delete and revoke are different: they notify, then close the streams.
-6. If no API route matches, `GET` requests use the static asset map. The routes `/` and `/s/<id>` map to `index.html`.
-7. Unmatched routes and domain errors are converted to `{error}` JSON by a single catch block.
+1. The connection enables WAL and foreign keys. `applyMigrations` reads `PRAGMA user_version`, refuses a value above `SCHEMA_VERSION`, and applies the pending steps in order in one transaction. A failed step rolls back, closes the connection, and stops startup. The CLI startup log names the active version (rules 17-23).
+2. Global security headers are set, then the URL is parsed and the configured prefix is stripped into `path`.
+3. `/health`, directory, and create routes are handled before the share pattern match. `/health` returns `{ok, schema}` with the integer active version (rule 10a). The directory query returns `id, title, created, updated, live, count` in one statement. It computes the effective `live` value in SQL and orders live shares first, then `updated` descending (rules 11a-11c).
+4. The regex `^/api/shares/([\w-]{32})(?:/(records|events|stop|revoke|draft))?$` splits the share id and action.
+5. The service fetches the share row once. For non-GET requests it authorizes the token against `shares.owner`, a SHA-256 of the owner key. It then checks `revoked`.
+6. Writes notify viewers only after the database change is committed. Delete and revoke are different: they notify, then close the streams.
+7. If no API route matches, `GET` requests use the static asset map. The routes `/` and `/s/<id>` map to `index.html`.
+8. Unmatched routes and domain errors are converted to `{error}` JSON by a single catch block.
 
 ## Key Abstractions
 
+- **Schema version:** `SCHEMA_VERSION` is `1`. Step `migrations[0]` creates the v0.1.0 tables and index, so a version `0` database migrates to version `1` without data loss (rule 21). A new schema change adds one step and increments the version by one (rule 22).
 - **Schema:** `shares(id PK, owner, title, created, updated, live, revoked)` and `records(share FK CASCADE, id, body, position, PK(share,id))`. An index on `(share, position)` orders the records. The service enables WAL mode and foreign keys on the connection.
 - **Owner stored as hash:** `shares.owner = sha256(ownerKey)`. The `equal` helper hashes both arguments, so it hashes the request token twice. Verification still matches.
 - **Status derived, not stored:** `shares.live` is an intent flag. A read reports live only when the flag is set and the last update is less than 20 seconds old. The directory query repeats that test in SQL, so the `live` field and the live-first order agree.

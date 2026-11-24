@@ -132,7 +132,7 @@ docker compose up -d --build
 curl --fail http://127.0.0.1:9080/pi-history/health
 ```
 
-The health endpoint should return `{"ok":true}`. Compose binds **127.0.0.1:9080**, intended for a reverse proxy on the same host. SQLite lives in the persistent `history-data` Docker volume. `docker compose down` keeps it; **`docker compose down -v` destroys it**.
+The health endpoint should return `{"ok":true,"schema":1}`. The `schema` value is the active database schema version. Compose binds **127.0.0.1:9080**, intended for a reverse proxy on the same host. SQLite lives in the persistent `history-data` Docker volume. `docker compose down` keeps it; **`docker compose down -v` destroys it**.
 
 ### 3. Configure DNS and HTTPS
 

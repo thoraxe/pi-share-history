@@ -182,13 +182,13 @@ If `9080` must be the externally visible **HTTPS** port, terminate TLS on that p
 
 ## Releases
 
-Every release is a git tag `vX.Y.Z` and one GitHub Release. One minor version is one release, so `0.2.0` is the next release after `0.1.0`. The patch number `Z` stays `0` for a normal release and changes only for a rebuild or a hotfix of that same release.
+Every release is a git tag `vX.Y.Z` and one GitHub Release. One minor version is one release, so `0.3.0` is the next release after `0.2.0`. The patch number `Z` stays `0` for a normal release and changes only for a rebuild or a hotfix of that same release.
 
 The release workflow runs the tests and publishes a container image to GitHub Container Registry:
 
 ```sh
-ghcr.io/thoraxe/pi-share-history:0.1.0
-ghcr.io/thoraxe/pi-share-history:0.1
+ghcr.io/thoraxe/pi-share-history:0.2.0
+ghcr.io/thoraxe/pi-share-history:0.2
 ghcr.io/thoraxe/pi-share-history:latest
 ```
 

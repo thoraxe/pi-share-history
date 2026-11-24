@@ -8,7 +8,7 @@ The repository is one npm package (`type: module`) that ships a Pi extension, a 
 |---|---|---|
 | `extension/index.ts` | default extension factory, `piHasBuiltInShare`, `detectPiHasBuiltInShare` | Registers share commands, captures session events, queues and flushes records, polls editor drafts, and persists owner state. |
 | `extension/records.mjs` | `content`, `messageRecord`, `toolRecord` | Allowlist mapping from Pi messages/tool events to publishable records, plus truncation. |
-| `server/index.mjs` | `createService`, `body`, `notify`, `publicDraft` | HTTP routing, auth, SQLite schema and queries, SSE fan-out, draft TTL, quota enforcement, static asset serving. |
+| `server/index.mjs` | `createService`, `SCHEMA_VERSION`, `migrations`, `applyMigrations`, `body`, `notify`, `publicDraft` | HTTP routing, auth, SQLite schema, versioned migrations and queries, SSE fan-out, draft TTL, quota enforcement, static asset serving. |
 | `web/app.js` | `refresh`, `renderTranscript`, `buildUnits`, `applyView`, `renderBody`, `renderDraft` | Directory and transcript rendering, Read/Advanced modes, tool groups, SSE-driven refresh, follow-live, search, Markdown toggle wiring. |
 | `web/markdown.js` | `window.PiMarkdown.render` | Marked + DOMPurify setup with escaped HTML, image placeholders, fixed tag/attribute allowlist. |
 | `web/theme.js` | theme IIFE, `nextPreference` | Applies stored/system theme before paint, cycles themes, syncs tabs. |

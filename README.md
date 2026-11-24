@@ -132,7 +132,7 @@ docker compose up -d --build
 curl --fail http://127.0.0.1:9080/pi-history/health
 ```
 
-The health endpoint should return `{"ok":true}`. Compose binds **127.0.0.1:9080**, intended for a reverse proxy on the same host. SQLite lives in the persistent `history-data` Docker volume. `docker compose down` keeps it; **`docker compose down -v` destroys it**.
+The health endpoint returns `{"ok":true,"schema":<version>}`. The number is the active database schema version for that release. Compose binds **127.0.0.1:9080**, intended for a reverse proxy on the same host. SQLite lives in the persistent `history-data` Docker volume. `docker compose down` keeps it; **`docker compose down -v` destroys it**.
 
 ### 3. Configure DNS and HTTPS
 
@@ -194,6 +194,8 @@ ghcr.io/thoraxe/pi-share-history:latest
 
 `latest` follows the most recent tag. Pin a full version for a deployment.
 
+The service migrates the database at startup and reports the active schema version in the startup log and `/health`. A failed migration stops the service with the database unchanged. A database written by a newer release is refused, so restore a backup before you downgrade.
+
 The service and the extension are released together. The HTTP API has no versioning scheme, so use the extension and the service from the same tag. The release notes state the pair and any breaking change.
 
 ## Features and limitations
@@ -251,13 +253,13 @@ npm test
 
 Production needs no npm install or asset build: browser libraries are pinned and committed under `web/vendor/` with their licenses. After updating Marked or DOMPurify, run `npm run vendor:web` and commit the regenerated assets. See `web/vendor/README.md`.
 
-Tests cover server authentication, publisher isolation, persistence across restart, SSE, deduplication, revocation/deletion, quota rollback, upload allowlisting, the extension lifecycle with a simulated Pi context, prefixed routing, browser URL construction, legacy owner-state migration, theme switching, client-side Markdown formatting/toggling and sanitization, and opt-in ephemeral drafts (edits, deletion, expiry, submission without duplicates, and disconnect cleanup). Browser interaction and real network deployments also require manual verification.
+Tests cover server authentication, publisher isolation, persistence across restart, SSE, deduplication, revocation/deletion, quota rollback, schema version migrations, upload allowlisting, the extension lifecycle with a simulated Pi context, prefixed routing, browser URL construction, legacy owner-state migration, theme switching, client-side Markdown formatting/toggling and sanitization, and opt-in ephemeral drafts (edits, deletion, expiry, submission without duplicates, and disconnect cleanup). Browser interaction and real network deployments also require manual verification.
 
 ## Layout
 
 - `extension/index.ts` — Pi commands and live synchronization.
 - `extension/records.mjs` — upload allowlist and truncation.
-- `server/index.mjs` — HTTP API, SQLite persistence, and SSE.
+- `server/index.mjs` — HTTP API, SQLite persistence, schema migrations, and SSE.
 - `web/` — read-only browser viewer, with locally bundled Markdown parser and sanitizer.
 - `scripts/vendor-web.mjs` — reproduce the bundled browser libraries from pinned dev dependencies.
 - `compose.yaml`, `Dockerfile`, `deploy/Caddyfile` — deployment templates; configure your own domain before use.

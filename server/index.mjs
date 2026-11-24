@@ -10,6 +10,38 @@ const secret = () => randomBytes(24).toString('base64url');
 const equal = (a, b) => timingSafeEqual(Buffer.from(hash(a)), Buffer.from(hash(b)));
 const failure = (status, message) => Object.assign(new Error(message), { status });
 
+// Rule 17 and rule 22: one integer version, increased by one for each schema change.
+export const SCHEMA_VERSION = 1;
+// Step `n` migrates schema version `n` to version `n + 1`.
+export const migrations = [
+  db => db.exec(`
+    CREATE TABLE IF NOT EXISTS shares (id TEXT PRIMARY KEY, owner TEXT NOT NULL, title TEXT NOT NULL, created INTEGER NOT NULL, updated INTEGER NOT NULL, live INTEGER NOT NULL DEFAULT 0, revoked INTEGER NOT NULL DEFAULT 0);
+    CREATE TABLE IF NOT EXISTS records (share TEXT NOT NULL REFERENCES shares(id) ON DELETE CASCADE, id TEXT NOT NULL, body TEXT NOT NULL, position INTEGER NOT NULL, PRIMARY KEY (share,id));
+    CREATE INDEX IF NOT EXISTS record_order ON records(share,position);`),
+];
+
+// Rules 18-21: run pending steps in order in one transaction and refuse a newer database.
+export function applyMigrations(db, { target = SCHEMA_VERSION, steps = migrations } = {}) {
+  let version = db.prepare('PRAGMA user_version').get().user_version;
+  if (version > target) throw new Error(`Database schema version ${version} is newer than service schema version ${target}`);
+  if (version === target) return version;
+  db.exec('BEGIN');
+  try {
+    while (version < target) {
+      const step = steps[version];
+      if (typeof step !== 'function') throw new Error(`Missing migration from schema version ${version}`);
+      step(db);
+      db.exec(`PRAGMA user_version=${version + 1}`);
+      version += 1;
+    }
+    db.exec('COMMIT');
+  } catch (error) {
+    try { db.exec('ROLLBACK'); } catch { /* SQLite may already have rolled back. */ }
+    throw error;
+  }
+  return version;
+}
+
 export function createService({ dataDir = './data', uploadKey, publicUrl = 'http://localhost:9080', maxShares = 1000, maxRecords = 10000, maxShareBytes = 20 * 1024 * 1024, draftTtlMs = 8000 } = {}) {
   if (!uploadKey || uploadKey.length < 24) throw new Error('UPLOAD_KEY must contain at least 24 characters');
   // One staleness window decides the reported live state, the directory order, and the draft guard.
@@ -21,10 +53,16 @@ export function createService({ dataDir = './data', uploadKey, publicUrl = 'http
   publicUrl = publicAddress.origin + basePath;
   mkdirSync(dataDir, { recursive: true });
   const db = new DatabaseSync(resolve(dataDir, 'history.sqlite'));
-  db.exec(`PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;
-    CREATE TABLE IF NOT EXISTS shares (id TEXT PRIMARY KEY, owner TEXT NOT NULL, title TEXT NOT NULL, created INTEGER NOT NULL, updated INTEGER NOT NULL, live INTEGER NOT NULL DEFAULT 0, revoked INTEGER NOT NULL DEFAULT 0);
-    CREATE TABLE IF NOT EXISTS records (share TEXT NOT NULL REFERENCES shares(id) ON DELETE CASCADE, id TEXT NOT NULL, body TEXT NOT NULL, position INTEGER NOT NULL, PRIMARY KEY (share,id));
-    CREATE INDEX IF NOT EXISTS record_order ON records(share,position);`);
+  let schemaVersion;
+  try {
+    db.exec('PRAGMA foreign_keys=ON;');
+    schemaVersion = applyMigrations(db);
+    // Set WAL only after a successful migration, so a refused or failed database keeps its journal mode.
+    db.exec('PRAGMA journal_mode=WAL;');
+  } catch (error) {
+    db.close();
+    throw error;
+  }
   // Drafts and revision tombstones are memory-only: never written to SQLite.
   const drafts = new Map();
   const validateDraft = draft => {
@@ -75,7 +113,7 @@ export function createService({ dataDir = './data', uploadKey, publicUrl = 'http
       if (basePath && !url.pathname.startsWith(basePath + '/')) throw failure(404, 'Not found');
       const path = url.pathname.slice(basePath.length);
       const token = (req.headers.authorization || '').replace(/^Bearer /, '');
-      if (req.method === 'GET' && path === '/health') return json(res, 200, { ok: true });
+      if (req.method === 'GET' && path === '/health') return json(res, 200, { ok: true, schema: schemaVersion });
       if (req.method === 'GET' && path === '/api/shares') {
         // Rules 11a-11c: one query returns the share rows with a correlated record count, live shares first.
         const rows = db.prepare(`SELECT s.id,s.title,s.created,s.updated,
@@ -190,7 +228,7 @@ export function createService({ dataDir = './data', uploadKey, publicUrl = 'http
     }
   }, 1000);
   expiry.unref();
-  return { server, db, close: async () => {
+  return { server, db, schemaVersion, close: async () => {
     clearInterval(heartbeat); clearInterval(expiry);
     for (const set of viewers.values()) for (const res of set) res.end();
     await new Promise(resolve => { server.close(resolve); server.closeIdleConnections(); });
@@ -199,7 +237,8 @@ export function createService({ dataDir = './data', uploadKey, publicUrl = 'http
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const port = Number(process.env.PORT || 9080);
   const service = createService({ dataDir: process.env.DATA_DIR, uploadKey: process.env.UPLOAD_KEY, publicUrl: process.env.PUBLIC_URL });
-  service.server.listen(Number(process.env.PORT || 9080), process.env.HOST || '0.0.0.0', () => console.log(`Pi history listening on port ${process.env.PORT || 9080}`));
+  service.server.listen(port, process.env.HOST || '0.0.0.0', () => console.log(`Pi history listening on port ${service.server.address().port} with schema version ${service.schemaVersion}`));
   for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, async () => { await service.close(); process.exit(0); });
 }
